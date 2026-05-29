@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>水處理製程模擬器 V2 · WaterSim Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>if(window['pdfjsLib']){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}</script>
+<style>
+:root{
+  --bg:#0a1628; --bg2:#0f1f3a; --panel:#13294b; --panel2:#1a3460;
+  --ink:#e8f1ff; --muted:#7a92b8; --line:rgba(255,255,255,0.08);
+  --teal:#06d6a0; --cyan:#22d3ee; --blue:#60a5fa; --violet:#a78bfa;
+  --amber:#fbbf24; --rose:#fb7185; --good:#10b981; --warn:#f59e0b; --bad:#ef4444;
+  --grad-cool:linear-gradient(135deg,#06d6a0 0%,#22d3ee 50%,#60a5fa 100%);
+  --grad-warm:linear-gradient(135deg,#fb7185 0%,#fbbf24 100%);
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"Segoe UI","Microsoft JhengHei","PingFang TC",system-ui,-apple-system,sans-serif;
+  background:radial-gradient(ellipse at top,#0f1f3a 0%,#0a1628 50%,#050a14 100%);
+  background-attachment:fixed;
+  color:var(--ink);line-height:1.6;min-height:100vh;
+  overflow-x:hidden;
+}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(circle at 20% 30%,rgba(6,214,160,.08),transparent 50%),
+  radial-gradient(circle at 80% 70%,rgba(96,165,250,.08),transparent 50%);
+  pointer-events:none;z-index:0;}
+.wrap{position:relative;max-width:1280px;margin:0 auto;padding:24px 24px 80px;z-index:1}
+
+/* Header */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:52px;height:52px;border-radius:14px;background:var(--grad-cool);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  box-shadow:0 6px 20px rgba(6,214,160,.4);position:relative;overflow:hidden}
+.logo::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.35),transparent 60%)}
+h1{font-size:24px;font-weight:700;letter-spacing:.5px;background:var(--grad-cool);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.iconbtn{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--ink);
+  width:42px;height:42px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:18px;transition:.2s}
+.iconbtn:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+.status-dot{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:20px;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.dot.on{background:var(--good);box-shadow:0 0 8px var(--good)}
+
+/* Panel */
+.panel{background:linear-gradient(180deg,rgba(19,41,75,.85),rgba(15,31,58,.85));
+  backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;
+  padding:22px;margin-bottom:18px;box-shadow:var(--shadow)}
+.panel h2{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-weight:600;color:var(--cyan)}
+.panel h2 .n{width:26px;height:26px;border-radius:8px;background:var(--grad-cool);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  box-shadow:0 2px 8px rgba(6,214,160,.4)}
+label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;letter-spacing:.3px}
+textarea,input,select{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;
+  padding:11px 13px;color:var(--ink);font-size:13px;font-family:inherit;transition:.15s;resize:vertical}
+textarea{min-height:180px;font-family:ui-monospace,"Cascadia Code",Menlo,monospace;font-size:12.5px;line-height:1.55}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.18);background:rgba(0,0,0,.35)}
+select option{background:var(--bg2);color:var(--ink)}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.row2{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+
+/* Buttons */
+.btn{border:none;border-radius:12px;padding:12px 22px;font-size:14px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:.2s;display:inline-flex;align-items:center;gap:8px;letter-spacing:.3px}
+.btn.primary{background:var(--grad-cool);color:#04111e;box-shadow:0 4px 14px rgba(6,214,160,.35)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(6,214,160,.5)}
+.btn.ghost{background:rgba(255,255,255,.06);color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover{background:rgba(255,255,255,.12)}
+.btn.warm{background:var(--grad-warm);color:#fff;box-shadow:0 4px 14px rgba(251,113,133,.3)}
+.btn.warm:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(251,113,133,.5)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;box-shadow:none}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.hint{font-size:12px;color:var(--muted)}
+
+/* Treatment methods */
+.cat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cat-tab{padding:7px 14px;border-radius:20px;background:rgba(255,255,255,.04);
+  border:1px solid var(--line);color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;transition:.15s}
+.cat-tab:hover{background:rgba(255,255,255,.08);color:var(--ink)}
+.cat-tab.active{background:var(--grad-cool);color:#04111e;border-color:transparent}
+
+.methods{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.method{position:relative;background:rgba(0,0,0,.2);border:1.5px solid var(--line);border-radius:12px;
+  padding:13px;cursor:pointer;transition:.2s;overflow:hidden}
+.method:hover{border-color:var(--cyan);background:rgba(34,211,238,.06);transform:translateY(-2px)}
+.method.selected{border-color:var(--teal);background:linear-gradient(135deg,rgba(6,214,160,.15),rgba(34,211,238,.08))}
+.method.selected::before{content:"✓";position:absolute;top:8px;right:10px;width:22px;height:22px;
+  border-radius:50%;background:var(--teal);color:#04111e;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.method .mname{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.method .mtag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.08);color:var(--muted);margin-bottom:6px;font-weight:600}
+.method .mdesc{font-size:11.5px;color:var(--muted);line-height:1.5}
+.method .mstats{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;font-size:10.5px}
+.method .mstats span{padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--muted)}
+
+.train-bar{margin-top:14px;padding:14px;background:rgba(0,0,0,.25);border-radius:12px;border:1px dashed var(--line)}
+.train-label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.train-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:34px}
+.train-empty{color:var(--muted);font-size:12px;font-style:italic}
+.chip{background:var(--grad-cool);color:#04111e;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(6,214,160,.3)}
+.chip .x{cursor:pointer;font-size:14px;opacity:.7;transition:.15s}
+.chip .x:hover{opacity:1}
+.arrow{color:var(--cyan);font-weight:700;font-size:16px}
+
+/* Simulation canvas */
+.sim-stage{position:relative;background:linear-gradient(180deg,#050a14 0%,#0a1628 100%);
+  border-radius:14px;padding:0;overflow:hidden;border:1px solid var(--line);min-height:260px}
+#flowSvg{width:100%;height:260px;display:block}
+.sim-overlay{position:absolute;top:10px;left:14px;font-size:11.5px;color:var(--muted);font-weight:600;display:flex;gap:14px;flex-wrap:wrap;z-index:5}
+.sim-overlay .pill{background:rgba(0,0,0,.5);border:1px solid var(--line);padding:5px 10px;border-radius:8px;color:var(--ink);backdrop-filter:blur(6px)}
+.sim-overlay .pill b{color:var(--teal)}
+
+/* Charts */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.chart-card{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:14px}
+.chart-card h4{font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:10px;letter-spacing:.3px}
+.chart-wrap{position:relative;height:230px}
+
+/* Results */
+.diag-summary{background:linear-gradient(135deg,rgba(6,214,160,.1),rgba(34,211,238,.05));
+  border-left:3px solid var(--teal);padding:14px 16px;border-radius:10px;font-size:13.5px;margin-bottom:14px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0}
+.kpi{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--grad-cool)}
+.kpi .lbl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.kpi .val{font-size:24px;font-weight:700;color:var(--teal);margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.kpi .unit{font-size:11px;color:var(--muted)}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:rgba(255,255,255,.04);color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.totalrow td{font-weight:700;background:rgba(6,214,160,.06);color:var(--teal)}
+
+.tag{display:inline-block;padding:3px 10px;border-radius:14px;font-size:10.5px;font-weight:700;letter-spacing:.3px}
+.tag.high{background:rgba(16,185,129,.18);color:var(--good)}
+.tag.medium{background:rgba(245,158,11,.18);color:var(--warn)}
+.tag.low{background:rgba(239,68,68,.18);color:var(--bad)}
+
+.train-card{background:rgba(0,0,0,.25);border:1.5px solid var(--line);border-radius:13px;padding:15px;margin-bottom:11px;transition:.2s}
+.train-card.rec{border-color:var(--teal);background:linear-gradient(135deg,rgba(6,214,160,.08),rgba(34,211,238,.04));
+  box-shadow:0 0 0 2px rgba(6,214,160,.12)}
+.train-card h3{font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.train-card .flow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:10px 0}
+.train-card .step{background:rgba(34,211,238,.15);color:var(--cyan);padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid rgba(34,211,238,.25)}
+.train-card .rationale{font-size:12.5px;color:var(--muted)}
+
+/* Loading */
+.loading{display:none;text-align:center;padding:30px 0}
+.spin{width:42px;height:42px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--teal);
+  border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.progress{height:6px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden;margin:12px 0}
+.progress .bar{height:100%;background:var(--grad-cool);border-radius:10px;width:0;transition:width .5s ease}
+.step-log{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace;text-align:left;margin-top:10px;background:rgba(0,0,0,.3);padding:10px 14px;border-radius:8px;max-height:120px;overflow-y:auto}
+.step-log div{padding:2px 0;opacity:.65}
+.step-log div.active{opacity:1;color:var(--teal)}
+.step-log div.done{opacity:.5;color:var(--good)}
+
+.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--rose);
+  padding:12px 14px;border-radius:10px;font-size:13px;margin-top:12px;display:none}
+.disc{font-size:11.5px;color:var(--muted);margin-top:12px;font-style:italic;line-height:1.6}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(6px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:480px;width:90%;box-shadow:var(--shadow)}
+.modal h3{font-size:17px;margin-bottom:6px;color:var(--cyan)}
+.modal p{color:var(--muted);font-size:13px;margin-bottom:14px}
+.modal .bar{justify-content:flex-end;margin-top:18px}
+
+.expand{cursor:pointer;color:var(--cyan);font-size:12px;font-weight:600;user-select:none}
+.expand:hover{text-decoration:underline}
+.collapsed{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.expanded{max-height:2000px;transition:max-height .35s ease}
+
+#results{display:none}
+.results-section{animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Anim - water flow */
+.water-flow{stroke:url(#waterGrad);stroke-width:3;fill:none;stroke-linecap:round;
+  stroke-dasharray:8 6;animation:flow 1.2s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-28}}
+.drop{animation:drop 2s ease-in-out infinite}
+@keyframes drop{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+@media(max-width:760px){
+  .grid,.row2,.kpi-row,.charts-grid{grid-template-columns:1fr}
+  h1{font-size:20px}.wrap{padding:16px 14px 60px}
+}
+
+/* ===== AI 對話顧問 ===== */
+.chat-fab{position:fixed;bottom:24px;right:24px;background:var(--grad-cool);color:#04111e;border:none;border-radius:50px;padding:14px 22px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(6,214,160,.4);font-size:14px;z-index:50;transition:.2s;display:flex;align-items:center;gap:8px}
+.chat-fab:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(6,214,160,.6)}
+.chat-fab .pulse{width:8px;height:8px;border-radius:50%;background:#04111e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.chat-panel{position:fixed;right:-480px;top:0;bottom:0;width:460px;max-width:95vw;background:linear-gradient(180deg,#13294b,#0a1628);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:60;transition:right .35s cubic-bezier(.2,.8,.2,1);box-shadow:-12px 0 32px rgba(0,0,0,.5);backdrop-filter:blur(10px)}
+.chat-panel.open{right:0}
+.chat-header{padding:18px 18px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.chat-header h3{margin:0;font-size:16px;background:var(--grad-cool);-webkit-background-clip:text;background-clip:text;color:transparent;display:flex;align-items:center;gap:8px}
+.chat-actions{display:flex;gap:6px}
+.chat-actions button{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:14px;transition:.15s;display:flex;align-items:center;justify-content:center}
+.chat-actions button:hover{background:rgba(255,255,255,.12)}
+
+.chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.chat-msg{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.6;word-wrap:break-word;animation:msgIn .25s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.chat-msg.user{background:var(--grad-cool);color:#04111e;align-self:flex-end;border-bottom-right-radius:4px;font-weight:500}
+.chat-msg.ai{background:rgba(255,255,255,.04);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+.chat-msg.ai h1,.chat-msg.ai h2,.chat-msg.ai h3{font-size:13.5px;margin:8px 0 4px;color:var(--cyan);font-weight:700}
+.chat-msg.ai strong{color:var(--teal)}
+.chat-msg.ai code{background:rgba(0,0,0,.4);padding:1px 6px;border-radius:4px;font-size:11.5px;font-family:ui-monospace,monospace;color:var(--amber)}
+.chat-msg.ai p{margin:6px 0}
+.chat-msg.ai ul,.chat-msg.ai ol{padding-left:20px;margin:6px 0}
+.chat-msg.ai li{margin:2px 0}
+.chat-msg.ai table{font-size:11.5px;margin:6px 0}
+.chat-msg.ai a{color:var(--cyan);text-decoration:underline}
+
+.chat-typing{display:flex;gap:5px;padding:2px}
+.chat-typing span{width:7px;height:7px;background:var(--cyan);border-radius:50%;animation:bounce 1.4s infinite}
+.chat-typing span:nth-child(2){animation-delay:.2s}
+.chat-typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(0);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+.chat-suggestions{padding:8px 14px;display:flex;flex-wrap:wrap;gap:5px;border-top:1px solid var(--line);flex-shrink:0}
+.chat-suggestions button{background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--cyan);padding:5px 11px;border-radius:14px;font-size:11.5px;cursor:pointer;transition:.15s;font-family:inherit}
+.chat-suggestions button:hover{background:rgba(34,211,238,.18);border-color:var(--cyan);transform:translateY(-1px)}
+
+.chat-input{padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;flex-shrink:0}
+.chat-input textarea{flex:1;min-height:46px;max-height:120px;resize:none;font-size:13px;padding:10px 12px}
+.chat-input button{background:var(--grad-cool);color:#04111e;border:none;border-radius:10px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;transition:.15s}
+.chat-input button:hover{transform:translateY(-1px)}
+.chat-input button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+.chat-status{padding:6px 14px;font-size:11px;color:var(--muted);text-align:center;border-top:1px solid var(--line)}
+
+.chat-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:12.5px}
+.chat-empty .big{font-size:36px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- ===========================================================
+     🔐 登入門 (Password Gate)
+     預設密碼：watersim2025
+     要改密碼：到 https://emn178.github.io/online-tools/sha256.html
+     輸入新密碼算出 SHA-256 hash，貼到下方 PASSWORD_HASH 變數
+     =========================================================== -->
+<div id="loginGate" style="position:fixed;inset:0;background:radial-gradient(ellipse at top,#0f1f3a,#050a14);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px">
+  <div style="text-align:center;margin-bottom:28px">
+    <div style="font-size:64px;margin-bottom:8px">💧</div>
+    <div style="font-size:26px;font-weight:700;background:linear-gradient(135deg,#06d6a0,#22d3ee,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent">WaterSim Pro</div>
+    <div style="color:#7a92b8;font-size:13px;margin-top:4px">水處理製程模擬器 · 請輸入存取密碼</div>
+  </div>
+  <div style="background:rgba(19,41,75,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,.35);backdrop-filter:blur(10px)">
+    <label style="font-size:12px;color:#7a92b8;font-weight:600;display:block;margin-bottom:6px">存取密碼</label>
+    <input type="password" id="loginPw" autofocus
+      style="width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;color:#e8f1ff;font-size:14px;font-family:inherit"
+      onkeydown="if(event.key==='Enter') checkLogin()" placeholder="請輸入密碼">
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <input type="checkbox" id="rememberMe" checked style="width:auto;cursor:pointer">
+      <label for="rememberMe" style="margin:0;color:#7a92b8;font-size:12px;cursor:pointer">記住我（30 天免再輸）</label>
+    </div>
+    <div id="loginErr" style="display:none;color:#fb7185;font-size:12px;margin-top:10px"></div>
+    <button onclick="checkLogin()" style="width:100%;margin-top:14px;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#06d6a0,#22d3ee,#60a5fa);color:#04111e;box-shadow:0 4px 14px rgba(6,214,160,.35)">進入系統</button>
+  </div>
+  <div style="color:#5b7077;font-size:11px;margin-top:18px;text-align:center;line-height:1.6">
+    © WaterSim Pro · 僅限授權人員使用<br>
+    若忘記密碼請聯絡網站管理員
+  </div>
+</div>
+
+<div id="app" style="display:none">
+<div class="wrap">
+
+<!-- Header -->
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">💧</div>
+    <div>
+      <h1>水處理製程模擬器 · WaterSim Pro</h1>
+      <div class="sub">V2 · 互動式製程選擇 + 動力學模擬 + AI 工程分析 · 單檔離線可用</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="status-dot"><span class="dot" id="apiDot"></span><span id="apiStatus">尚未設定 API</span></span>
+    <select id="quickProviderSel" onchange="onQuickProviderChange()" title="快速切換 AI 提供商" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);font-size:11.5px;padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit"></select>
+    <select id="quickModelSel" onchange="onQuickModelChange()" title="快速切換模型" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);font-size:11.5px;padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit;max-width:220px"></select>
+    <button class="iconbtn" id="trialBtn" title="產生試用碼（管理員）" onclick="openTrialGen()" style="display:none">🎫</button>
+    <button class="iconbtn" title="設定" onclick="openSettings()">⚙️</button>
+    <button class="iconbtn" title="登出" onclick="logout()">🚪</button>
+  </div>
+</div>
+
+<!-- INPUT -->
+<div class="panel">
+  <h2><span class="n">1</span>進水水質檢測報告</h2>
+  <div class="bar" style="margin-bottom:10px;margin-top:0">
+    <button class="btn primary" onclick="document.getElementById('fileInput').click()">📁 上傳檢測報告</button>
+    <input type="file" id="fileInput" accept=".pdf,.csv,.xlsx,.xls,.txt,.png,.jpg,.jpeg,.webp" style="display:none" onchange="handleFileUpload(event)">
+    <span class="hint" id="uploadStatus">支援 PDF / Excel / CSV / 文字檔 / 圖片（圖片需先設好 AI Key 做辨識）</span>
+  </div>
+  <label>檢測報告內容（可直接貼上實驗室數據，或從檔案匯入後在此修改）</label>
+  <textarea id="report" placeholder="例：pH 7.8、TDS 3500 mg/L、硬度(CaCO3) 850 mg/L、Cl 1200 mg/L、SiO2 35 mg/L、濁度 12 NTU、COD 80 mg/L、BOD5 35 mg/L..."></textarea>
+  <div class="bar">
+    <button class="btn ghost" onclick="loadSample('industrial')">🏭 工業廢水範例</button>
+    <button class="btn ghost" onclick="loadSample('municipal')">🏙️ 都市污水範例</button>
+    <button class="btn ghost" onclick="loadSample('seawater')">🌊 半鹹水範例</button>
+    <span class="hint">不確定格式？先載入範例試跑一次。</span>
+  </div>
+</div>
+
+<!-- GOAL -->
+<div class="panel">
+  <h2><span class="n">2</span>處理目標與設計條件</h2>
+  <label>🎯 快選處理目標（點一下自動填入，可再自訂）</label>
+  <div class="cat-tabs" id="goalPresets" style="margin-bottom:10px"></div>
+  <div class="row2">
+    <div>
+      <label>處理目標 / 產水用途（可自由編輯）</label>
+      <textarea id="goal" style="min-height:70px;font-family:inherit;font-size:13px" placeholder="例：回收再利用，產水 TDS < 100 mg/L、回收率 > 75%、BOD < 10 mg/L"></textarea>
+    </div>
+    <div>
+      <label>設計產水量 (m³/h)</label>
+      <input id="capacity" type="number" placeholder="例：50" value="50">
+      <label style="margin-top:10px">✅ 加上達標項目（可多選）</label>
+      <div id="complianceChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+    </div>
+  </div>
+  <div class="grid">
+    <div>
+      <label>水源類型</label>
+      <select id="source">
+        <option>工業廢水</option><option>電廠廢水</option><option>地下水 / 井水</option>
+        <option>都市污水</option><option>自來水 / 市政水</option>
+        <option>海水 / 半鹹水</option><option>製程回收水</option><option>RO 濃水</option>
+      </select>
+    </div>
+    <div>
+      <label>目標導向</label>
+      <select id="priority">
+        <option>平衡（成本與水質）</option><option>最低總成本</option>
+        <option>最高回收率 / 零排放 ZLD</option><option>最高產水品質</option>
+      </select>
+    </div>
+    <div>
+      <label>專案名稱（選填，用於 PPT 標題）</label>
+      <input id="project" placeholder="例：A 廠廢水回收案">
+    </div>
+  </div>
+</div>
+
+<!-- METHODS -->
+<div class="panel">
+  <h2><span class="n">3</span>選擇處理單元 <span style="font-size:11.5px;color:var(--muted);font-weight:400;margin-left:6px">按順序勾選即組成處理流程</span></h2>
+  <div class="cat-tabs" id="catTabs"></div>
+  <div class="methods" id="methodsGrid"></div>
+  <div class="train-bar">
+    <div class="train-label">⚙️ 目前選擇的處理流程（依點選順序）</div>
+    <div class="train-flow" id="trainFlow"><span class="train-empty">尚未選擇任何單元 — 點上方卡片加入流程</span></div>
+  </div>
+  <div class="bar">
+    <button class="btn primary" id="simBtn" onclick="runSimulation()">▶️ 開始模擬</button>
+    <button class="btn ghost" onclick="autoRecommend()">🪄 規則推薦</button>
+    <button class="btn ghost" id="aiRecBtn" onclick="aiRecommend()" style="border-color:rgba(34,211,238,.35);color:var(--cyan)">🤖 AI 推薦組合</button>
+    <button class="btn ghost" onclick="clearTrain()">🗑️ 清空</button>
+    <button class="btn warm" id="aiBtn" onclick="runAIAnalysis()">📊 AI 深度分析 + 出 PPT</button>
+  </div>
+  <div class="err" id="errBox"></div>
+</div>
+
+<!-- SIMULATION -->
+<div class="panel" id="simPanel" style="display:none">
+  <h2><span class="n">4</span>製程動態模擬</h2>
+  <div class="sim-stage">
+    <div class="sim-overlay">
+      <span class="pill">⏱️ 模擬時間：<b id="simTime">0.0 s</b></span>
+      <span class="pill">📊 進度：<b id="simProg">0%</b></span>
+      <span class="pill">🔬 階段：<b id="simStage">待機</b></span>
+    </div>
+    <svg id="flowSvg" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="waterGrad" x1="0" x2="1">
+          <stop offset="0%" stop-color="#22d3ee"/>
+          <stop offset="100%" stop-color="#06d6a0"/>
+        </linearGradient>
+        <linearGradient id="tankGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a3460"/>
+          <stop offset="100%" stop-color="#0a1628"/>
+        </linearGradient>
+        <radialGradient id="bubbleGrad">
+          <stop offset="0%" stop-color="#fff" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#22d3ee" stop-opacity=".2"/>
+        </radialGradient>
+      </defs>
+      <g id="flowG"></g>
+    </svg>
+  </div>
+  <div class="charts-grid">
+    <div class="chart-card"><h4>💧 各階段污染物濃度變化 (mg/L)</h4><div class="chart-wrap"><canvas id="chartConc"></canvas></div></div>
+    <div class="chart-card"><h4>📈 累計去除率 (%)</h4><div class="chart-wrap"><canvas id="chartRem"></canvas></div></div>
+  </div>
+  <div class="kpi-row" id="simKpis"></div>
+  <div class="disc">
+    模型基礎：簡化版 <b>IWA ASM1 / BSM1</b>（活性污泥動力學）、<b>RO 膜傳遞方程</b>（Solution-Diffusion）、
+    <b>Langmuir / Freundlich 吸附</b>、<b>Hazen 沉降</b>。係數採文獻典型值，實際工程需現場校正。
+  </div>
+</div>
+
+<!-- AI RESULTS -->
+<div id="results">
+  <div class="panel results-section">
+    <h2><span class="n">5</span>AI 水質診斷</h2>
+    <div id="diagBox"></div>
+  </div>
+  <div class="panel results-section">
+    <h2><span class="n">6</span>AI 推薦製程方案</h2>
+    <div id="trainBox"></div>
+  </div>
+  <div class="panel results-section">
+    <h2><span class="n">7</span>建議設備清單</h2>
+    <div id="equipBox" style="overflow-x:auto"></div>
+  </div>
+  <div class="panel results-section">
+    <h2><span class="n">8</span>成本分析</h2>
+    <div class="kpi-row" id="costKpis"></div>
+    <div id="costTables" style="margin-top:14px"></div>
+    <div class="disc" id="costDisc"></div>
+  </div>
+  <div class="panel results-section" style="text-align:center">
+    <h2 style="justify-content:center"><span class="n">9</span>輸出簡報</h2>
+    <button class="btn warm" onclick="makePPT()">📊 生成 PowerPoint 報告</button>
+    <div class="hint" style="margin-top:8px">將自動下載 .pptx 檔，可用 PowerPoint / Keynote / Google Slides 開啟編輯。</div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="panel loading" id="loading">
+  <div class="spin"></div>
+  <div id="status" style="font-size:14px;color:var(--ink);font-weight:600">分析中…</div>
+  <div class="progress"><div class="bar" id="progBar"></div></div>
+  <div class="step-log" id="stepLog"></div>
+</div>
+
+</div><!-- /wrap -->
+</div><!-- /#app -->
+
+<!-- 試用碼產生 Modal -->
+<div class="modal-bg" id="trialModal">
+  <div class="modal" style="max-width:520px">
+    <h3>🎫 產生試用碼</h3>
+    <p>選擇試用期限，產生一組可分享的試用碼。試用碼會自動到期，無法續期。</p>
+    <div style="display:flex;gap:8px;margin:14px 0">
+      <button class="btn ghost" onclick="genTrial(1)">📅 1 天</button>
+      <button class="btn ghost" onclick="genTrial(3)">📅 3 天</button>
+      <button class="btn ghost" onclick="genTrial(7)">📅 7 天</button>
+      <button class="btn ghost" onclick="genTrial(14)">📅 14 天</button>
+      <button class="btn ghost" onclick="genTrial(30)">📅 30 天</button>
+    </div>
+    <div id="trialResult" style="display:none;background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.3);border-radius:10px;padding:14px;margin-top:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">試用碼（請告知使用者直接貼進密碼框）：</div>
+      <div id="trialCode" style="font-family:ui-monospace,monospace;font-size:18px;color:var(--teal);font-weight:700;letter-spacing:1px;user-select:all;cursor:pointer" onclick="copyTrialCode()"></div>
+      <div id="trialExp" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+      <button class="btn primary" style="margin-top:10px;padding:8px 14px;font-size:12.5px" onclick="copyTrialCode()">📋 複製試用碼</button>
+    </div>
+    <div class="bar">
+      <button class="btn ghost" onclick="closeTrialGen()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 浮動 AI 顧問對話 -->
+<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="開啟 AI 顧問">
+  <span class="pulse"></span>💬 AI 顧問
+</button>
+<div id="chatPanel" class="chat-panel">
+  <div class="chat-header">
+    <h3>🤖 AI 水處理顧問</h3>
+    <div class="chat-actions">
+      <button onclick="clearChat()" title="清空對話">🗑️</button>
+      <button onclick="toggleChat()" title="關閉">✕</button>
+    </div>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-suggestions" id="chatSuggestions">
+    <button onclick="quickAsk('根據我目前的進水報告和處理目標，建議的處理流程是什麼？請逐步說明每個單元的角色。')">💡 建議怎麼處理</button>
+    <button onclick="quickAsk('我目前選的這套流程有什麼風險？哪裡可能會出問題？')">⚠️ 風險評估</button>
+    <button onclick="quickAsk('怎麼降低 CAPEX 或 OPEX？有沒有替代方案？')">💰 降低成本</button>
+    <button onclick="quickAsk('預估出水水質會是？能不能達到我設定的目標？')">🎯 達標分析</button>
+    <button onclick="quickAsk('和傳統做法比，這個流程的優缺點？')">⚖️ 方案比較</button>
+    <button onclick="quickAsk('解釋一下 RO、UF、MBR、CAS 的差別')">📚 名詞解釋</button>
+  </div>
+  <div class="chat-input">
+    <textarea id="chatInput" placeholder="輸入問題（Ctrl/Cmd+Enter 送出，Enter 換行）" onkeydown="handleChatKeydown(event)"></textarea>
+    <button id="chatSendBtn" onclick="sendChat()">送出</button>
+  </div>
+  <div class="chat-status" id="chatStatus">💡 Ctrl/Cmd+Enter 送出，避免中文選字誤觸　·　對話會帶入水質報告與流程</div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal" style="max-width:540px">
+    <h3>⚙️ AI 設定</h3>
+    <p>選擇 AI 提供商並輸入對應的 API Key。Key 只存在你的瀏覽器 localStorage，<b>絕不上傳第三方</b>。</p>
+
+    <label>AI 提供商</label>
+    <select id="providerSelect" onchange="onProviderChange()">
+      <option value="gemini">🟢 Google Gemini（免費 · 1500次/天 · 推薦）</option>
+      <option value="groq">⚡ Groq（免費 · 速度最快）</option>
+      <option value="openrouter">🌐 OpenRouter（免費模型可選）</option>
+      <option value="anthropic">💎 Anthropic Claude（付費 · 品質最頂）</option>
+    </select>
+
+    <label style="margin-top:12px">模型</label>
+    <select id="modelSelect"></select>
+
+    <label style="margin-top:12px"><span id="keyLabel">API Key</span></label>
+    <input type="password" id="apiKeyInput" placeholder="貼上 API Key">
+    <div class="hint" id="keyHint" style="margin-top:6px"></div>
+
+    <div class="bar">
+      <button class="btn ghost" onclick="closeSettings()">取消</button>
+      <button class="btn primary" onclick="saveSettings()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   🔐 密碼門
+   - 預設密碼：watersim2025
+   - 改密碼：到 https://emn178.github.io/online-tools/sha256.html
+     輸入新密碼算 hash → 貼到下面 PASSWORD_HASH
+   ========================================================================= */
+const PASSWORD_HASH="bc9e13374ec5804f44f4eb4874649932809170e31694443c2b38eee03c73ccd4"; // sha256("water888")
+const AUTH_KEY="watersim_authed", AUTH_ROLE_KEY="watersim_role", AUTH_DAYS=30;
+const IDLE_MINUTES=10;  // 閒置 10 分鐘自動登出（最後 1 分鐘會跳警告）
+const TRIAL_SECRET="WS-secret-water-treatment-2026-keep-private"; // 改這個會讓所有舊試用碼失效
+
+async function sha256(text){
+  const buf=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function checkLogin(){
+  const pw=document.getElementById('loginPw').value.trim();
+  const errEl=document.getElementById('loginErr');
+  if(!pw){errEl.textContent='請輸入密碼';errEl.style.display='block';return;}
+
+  // 先試主密碼
+  const h=await sha256(pw);
+  if(h===PASSWORD_HASH){
+    const remember=document.getElementById('rememberMe').checked;
+    if(remember){
+      localStorage.setItem(AUTH_KEY,String(Date.now()+AUTH_DAYS*24*60*60*1000));
+      localStorage.setItem(AUTH_ROLE_KEY,'admin');
+    } else {
+      sessionStorage.setItem(AUTH_KEY,'1');
+      sessionStorage.setItem(AUTH_ROLE_KEY,'admin');
+    }
+    enterApp('admin');
+    return;
+  }
+
+  // 再試試用碼
+  const trial=await verifyTrialCode(pw.toUpperCase());
+  if(trial?.valid){
+    // 試用碼：用實際到期時間存（一定用 localStorage，期限就是試用期）
+    localStorage.setItem(AUTH_KEY,String(trial.expiresAt.getTime()));
+    localStorage.setItem(AUTH_ROLE_KEY,'trial:'+pw.toUpperCase());
+    enterApp('trial', trial);
+    return;
+  }
+  if(trial && !trial.valid){
+    errEl.textContent='試用碼無效：'+trial.reason;
+  } else {
+    errEl.textContent='密碼錯誤，請再試一次。';
+  }
+  errEl.style.display='block';
+  document.getElementById('loginPw').value='';
+  document.getElementById('loginPw').focus();
+}
+
+function enterApp(role, trialInfo){
+  document.getElementById('loginGate').style.display='none';
+  document.getElementById('app').style.display='';
+  setTimeout(startIdleTracking,100);
+  // 試用版：顯示倒數 banner
+  if(role==='trial' && trialInfo) showTrialBanner(trialInfo);
+}
+
+function showTrialBanner(trial){
+  let b=document.getElementById('trialBanner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='trialBanner';
+    b.style.cssText='position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#fbbf24,#fb7185);color:#1a1a1a;padding:8px 16px;text-align:center;font-size:13px;font-weight:600;z-index:55;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+    document.body.appendChild(b);
+    document.querySelector('.wrap').style.marginTop='38px';
+  }
+  const update=()=>{
+    const hours=Math.ceil((trial.expiresAt.getTime()-Date.now())/3600000);
+    if(hours<=0){
+      b.innerHTML='⏰ 試用已到期，將自動登出…';
+      setTimeout(logout,3000);
+      return;
+    }
+    const days=Math.floor(hours/24), hRem=hours%24;
+    const remain=days>0?`${days} 天 ${hRem} 小時`:`${hours} 小時`;
+    b.innerHTML=`🎫 試用版 · 剩 <b>${remain}</b> 到期（${trial.expiresAt.toLocaleString('zh-TW')}）`;
+  };
+  update();
+  setInterval(update,60000);
+}
+
+/* ===== 試用碼 HMAC 系統（v2 含隨機序號，向下相容 v1） ===== */
+async function hmacShort(payload){
+  const buf=new TextEncoder().encode(TRIAL_SECRET+':'+payload);
+  const h=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(h)).slice(0,4).map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+function randomSerial(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 避開 I,O,0,1 易混淆
+  const r=crypto.getRandomValues(new Uint8Array(4));
+  let s=''; for(let i=0;i<4;i++) s+=chars[r[i]%chars.length];
+  return s;
+}
+async function generateTrialCode(days){
+  const exp=new Date();
+  exp.setDate(exp.getDate()+days);
+  exp.setHours(23,59,59,999);
+  const ymd=exp.getFullYear()+String(exp.getMonth()+1).padStart(2,'0')+String(exp.getDate()).padStart(2,'0');
+  const serial=randomSerial();
+  const sig=await hmacShort(ymd+':'+serial);
+  return `WS-${ymd}-${serial}-${sig}`;
+}
+async function verifyTrialCode(code){
+  const s=String(code||'').toUpperCase().trim();
+  let ymd=null, ok=false;
+  // v2 新格式 WS-YYYYMMDD-SERIAL-SIG
+  let m=s.match(/^WS-(\d{8})-([A-Z0-9]{4})-([0-9A-F]{8})$/);
+  if(m){
+    ymd=m[1];
+    ok=(await hmacShort(ymd+':'+m[2]))===m[3];
+  } else {
+    // v1 舊格式（向下相容）WS-YYYYMMDD-SIG
+    m=s.match(/^WS-(\d{8})-([0-9A-F]{8})$/);
+    if(m){ ymd=m[1]; ok=(await hmacShort(ymd))===m[2]; }
+  }
+  if(!ymd) return null;
+  if(!ok) return {valid:false, reason:'簽章錯誤（可能是亂改的碼）'};
+  const y=parseInt(ymd.slice(0,4)), mo=parseInt(ymd.slice(4,6))-1, d=parseInt(ymd.slice(6,8));
+  const expiresAt=new Date(y,mo,d,23,59,59,999);
+  if(expiresAt.getTime()<Date.now()) return {valid:false, reason:'已過期', expiresAt};
+  return {valid:true, expiresAt};
+}
+function checkAuth(){
+  const exp=localStorage.getItem(AUTH_KEY);
+  const role=localStorage.getItem(AUTH_ROLE_KEY)||sessionStorage.getItem(AUTH_ROLE_KEY)||'admin';
+  if(exp && Date.now()<parseInt(exp,10)){
+    document.getElementById('loginGate').style.display='none';
+    document.getElementById('app').style.display='';
+    if(role.startsWith('trial:')){
+      showTrialBanner({expiresAt:new Date(parseInt(exp,10))});
+    }
+    return true;
+  }
+  if(sessionStorage.getItem(AUTH_KEY)==='1'){
+    document.getElementById('loginGate').style.display='none';
+    document.getElementById('app').style.display='';
+    return true;
+  }
+  return false;
+}
+function currentRole(){
+  return localStorage.getItem(AUTH_ROLE_KEY)||sessionStorage.getItem(AUTH_ROLE_KEY)||'admin';
+}
+function logout(){
+  localStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(AUTH_KEY);
+  stopIdleTimer();
+  location.reload();
+}
+
+/* ===== 閒置自動登出 ===== */
+let _idleTimer=null, _idleWarnTimer=null, _idleToast=null;
+function showIdleToast(secs){
+  if(_idleToast){_idleToast.remove();}
+  _idleToast=document.createElement('div');
+  _idleToast.id='idleToast';
+  _idleToast.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(251,113,133,.95);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:600;z-index:10000;box-shadow:0 8px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);cursor:pointer';
+  _idleToast.innerHTML='⏰ 閒置警告：'+secs+' 秒後自動登出　<span style="opacity:.8;font-weight:400">（移動滑鼠繼續使用）</span>';
+  _idleToast.onclick=()=>{_idleToast.remove();_idleToast=null;resetIdleTimer();};
+  document.body.appendChild(_idleToast);
+}
+function hideIdleToast(){ if(_idleToast){_idleToast.remove();_idleToast=null;} }
+function stopIdleTimer(){
+  clearTimeout(_idleTimer); clearTimeout(_idleWarnTimer);
+  _idleTimer=null; _idleWarnTimer=null;
+  hideIdleToast();
+}
+function resetIdleTimer(){
+  // 只有登入後才啟動
+  if(!document.getElementById('app') || document.getElementById('app').style.display==='none') return;
+  stopIdleTimer();
+  // 警告：在到期前 60 秒顯示
+  const warnMs=Math.max(1, IDLE_MINUTES*60-60)*1000;
+  _idleWarnTimer=setTimeout(()=>{
+    let left=60;
+    showIdleToast(left);
+    const ic=setInterval(()=>{
+      left--;
+      if(left<=0){ clearInterval(ic); return; }
+      if(_idleToast) showIdleToast(left);
+    },1000);
+    // 警告期間繼續計時，但有 toast 也算閒置
+    _idleTimer=setTimeout(()=>{ clearInterval(ic); alert('閒置超過 '+IDLE_MINUTES+' 分鐘，已自動登出。'); logout(); },60*1000);
+  },warnMs);
+}
+function startIdleTracking(){
+  // 任何操作都重置計時
+  ['mousedown','keydown','touchstart','scroll','wheel','pointermove'].forEach(ev=>{
+    window.addEventListener(ev, ()=>{ if(_idleToast){hideIdleToast();} resetIdleTimer(); }, {passive:true});
+  });
+  resetIdleTimer();
+}
+
+// 立即檢查
+if(checkAuth()){ setTimeout(startIdleTracking,100); }
+
+/* =========================================================================
+   水處理製程模擬器 V2 · 邏輯層
+   - 內建多種處理單元 + 動力學模型 (簡化版 ASM1 / BSM1 / RO Solution-Diffusion)
+   - 即時 SVG 動畫 + Chart.js 圖表
+   - 直接從瀏覽器呼叫 Anthropic API（使用 dangerous-direct-browser-access）
+   ========================================================================= */
+
+/* ===== AI 提供商設定 ===== */
+const PROVIDERS = {
+  gemini: {
+    name: 'Google Gemini',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    keyHelp: '免費，1500 次/天。到 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">aistudio.google.com/apikey</a> 用 Google 帳號登入點「Create API Key」即可。',
+    models: [
+      ['gemini-2.5-flash','Gemini 2.5 Flash（推薦 · 最新穩定）'],
+      ['gemini-2.5-pro','Gemini 2.5 Pro（最強，但 RPM 較低）'],
+      ['gemini-2.5-flash-lite','Gemini 2.5 Flash Lite（最快最省）'],
+      ['gemini-flash-latest','Gemini Flash Latest（自動更新）'],
+    ],
+    defaultModel: 'gemini-2.5-flash'
+  },
+  groq: {
+    name: 'Groq',
+    keyUrl: 'https://console.groq.com/keys',
+    keyHelp: '免費，速度極快。到 <a href="https://console.groq.com/keys" target="_blank" style="color:var(--cyan)">console.groq.com/keys</a> 註冊後 Create API Key。',
+    models: [
+      ['llama-3.3-70b-versatile','Llama 3.3 70B（推薦）'],
+      ['deepseek-r1-distill-llama-70b','DeepSeek R1 Distill 70B（推理強）'],
+      ['llama-3.1-8b-instant','Llama 3.1 8B（最快）'],
+      ['mixtral-8x7b-32768','Mixtral 8x7B'],
+    ],
+    defaultModel: 'llama-3.3-70b-versatile'
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    keyUrl: 'https://openrouter.ai/keys',
+    keyHelp: '聚合多家模型。到 <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--cyan)">openrouter.ai/keys</a> 註冊取 Key。下面標 :free 的是完全免費模型。',
+    models: [
+      ['google/gemma-4-31b-it:free','Gemma 4 31B（免費 · 推薦）'],
+      ['nvidia/nemotron-3-super-120b-a12b:free','Nemotron 120B（免費 · 最大）'],
+      ['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free','Nemotron 30B 推理（免費）'],
+      ['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet（付費）'],
+    ],
+    defaultModel: 'google/gemma-4-31b-it:free'
+  },
+  anthropic: {
+    name: 'Anthropic Claude',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+    keyHelp: '付費。到 <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--cyan)">console.anthropic.com</a> 取 Key。',
+    models: [
+      ['claude-sonnet-4-5','Claude Sonnet 4.5（推薦）'],
+      ['claude-opus-4-5','Claude Opus 4.5（最強）'],
+      ['claude-haiku-4-5','Claude Haiku 4.5（最快）'],
+    ],
+    defaultModel: 'claude-sonnet-4-5'
+  }
+};
+
+/* 🎁 內建試用 Key — 使用者沒設自己的 Key 時自動用這些
+   填的方式：把 PROVIDER 對應行的雙引號中間貼上你的 Key（會自動 base64 混淆）
+   或用 obfuscateKey() 工具函式先混淆好再貼
+   --- 留空就代表那個提供商沒有內建（使用者必須自己貼）--- */
+const EMBEDDED_KEYS_OBF = {
+  gemini:     "__GEMINI_KEY_B64__",
+  groq:       "__GROQ_KEY_B64__",
+  openrouter: "__OPENROUTER_KEY_B64__",
+  anthropic:  "",
+};
+// 解混淆並取用內建 Key
+function getEmbeddedKey(provider){
+  const v=EMBEDDED_KEYS_OBF[provider]||"";
+  if(!v) return "";
+  // 支援兩種格式：base64 或純文字
+  try {
+    // 偵測 base64：只含 A-Za-z0-9+/= 且長度為 4 的倍數
+    if(/^[A-Za-z0-9+/=]+$/.test(v) && v.length%4===0){
+      return atob(v);
+    }
+  } catch(e){}
+  return v; // 回傳原文
+}
+// 開發用：把 Key 混淆成 base64（拿來貼進 EMBEDDED_KEYS_OBF）
+function obfuscateKey(raw){ return btoa(raw); }
+
+const LS_PROVIDER="watersim_provider", LS_KEY_PREFIX="watersim_key_", LS_MODEL_PREFIX="watersim_model_";
+let PROVIDER=localStorage.getItem(LS_PROVIDER)||'gemini';
+let API_KEY=localStorage.getItem(LS_KEY_PREFIX+PROVIDER)||"";
+let MODEL=localStorage.getItem(LS_MODEL_PREFIX+PROVIDER)||PROVIDERS[PROVIDER].defaultModel;
+
+/* 取得最終要用的 API Key：使用者自己的 > 內建 > 空 */
+function effectiveKey(){ return API_KEY || getEmbeddedKey(PROVIDER); }
+/* 是否有可用 Key（自己的或內建） */
+function hasKey(){ return !!effectiveKey(); }
+/* 是否在用內建 Key（使用者沒設自己的） */
+function usingEmbedded(){ return !API_KEY && !!getEmbeddedKey(PROVIDER); }
+let DATA=null;           // AI 分析結果
+let SIM_RESULT=null;     // 模擬結果
+let chartConc=null, chartRem=null;
+
+/* 試用碼產生 UI */
+function openTrialGen(){
+  if(currentRole().startsWith('trial:')){
+    alert('試用版無權產生新試用碼');
+    return;
+  }
+  document.getElementById('trialResult').style.display='none';
+  document.getElementById('trialModal').classList.add('show');
+}
+function closeTrialGen(){ document.getElementById('trialModal').classList.remove('show'); }
+async function genTrial(days){
+  const code=await generateTrialCode(days);
+  const exp=new Date(); exp.setDate(exp.getDate()+days); exp.setHours(23,59,59,999);
+  document.getElementById('trialCode').textContent=code;
+  document.getElementById('trialExp').textContent=`有效期至 ${exp.toLocaleString('zh-TW')}（${days} 天）`;
+  document.getElementById('trialResult').style.display='block';
+}
+function copyTrialCode(){
+  const c=document.getElementById('trialCode').textContent;
+  navigator.clipboard.writeText(c).then(()=>{
+    const btn=document.querySelector('#trialModal .btn.primary');
+    if(btn){ const o=btn.textContent; btn.textContent='✅ 已複製'; setTimeout(()=>btn.textContent=o,1500); }
+  });
+}
+
+function updateApiStatus(){
+  const dot=document.getElementById('apiDot'), st=document.getElementById('apiStatus');
+  if(hasKey()){
+    dot.classList.add('on');
+    const tag=usingEmbedded()?' 🎁':'';
+    st.textContent=`${PROVIDERS[PROVIDER].name}${tag}`;
+  } else {
+    dot.classList.remove('on');
+    st.textContent='尚未設定 API';
+  }
+  renderQuickPickers();
+}
+function renderQuickPickers(){
+  const ps=document.getElementById('quickProviderSel');
+  const ms=document.getElementById('quickModelSel');
+  if(ps){
+    ps.innerHTML=Object.entries(PROVIDERS).map(([k,p])=>`<option value="${k}" ${k===PROVIDER?'selected':''}>${p.name}</option>`).join('');
+  }
+  if(ms){
+    const models=PROVIDERS[PROVIDER]?.models||[];
+    ms.innerHTML=models.map(([v,l])=>`<option value="${v}" ${v===MODEL?'selected':''}>${l}</option>`).join('');
+  }
+}
+function onQuickModelChange(){
+  MODEL=document.getElementById('quickModelSel').value;
+  localStorage.setItem(LS_MODEL_PREFIX+PROVIDER,MODEL);
+  const m=document.createElement('div');
+  m.textContent='✓ 模型已切到 '+MODEL;
+  m.style.cssText='position:fixed;top:70px;right:24px;background:var(--grad-cool);color:#04111e;padding:8px 14px;border-radius:10px;font-weight:600;font-size:12px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  document.body.appendChild(m);
+  setTimeout(()=>m.remove(),1800);
+}
+function onQuickProviderChange(){
+  PROVIDER=document.getElementById('quickProviderSel').value;
+  API_KEY=localStorage.getItem(LS_KEY_PREFIX+PROVIDER)||"";
+  MODEL=localStorage.getItem(LS_MODEL_PREFIX+PROVIDER)||PROVIDERS[PROVIDER].defaultModel;
+  localStorage.setItem(LS_PROVIDER,PROVIDER);
+  updateApiStatus();
+}
+function onProviderChange(){
+  const p=document.getElementById('providerSelect').value;
+  const pi=PROVIDERS[p];
+  const ms=document.getElementById('modelSelect');
+  ms.innerHTML=pi.models.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  ms.value=localStorage.getItem(LS_MODEL_PREFIX+p)||pi.defaultModel;
+  document.getElementById('apiKeyInput').value=localStorage.getItem(LS_KEY_PREFIX+p)||'';
+  document.getElementById('keyLabel').textContent=pi.name+' API Key';
+  const hasEmbedded=!!getEmbeddedKey(p);
+  const baseHelp=pi.keyHelp;
+  document.getElementById('keyHint').innerHTML=
+    (hasEmbedded?`<span style="color:var(--good);font-weight:600">🎁 已內建試用 Key（可留空直接用）。</span>填自己的 Key 會覆蓋內建。<br>`:'')+baseHelp;
+  document.getElementById('apiKeyInput').placeholder=hasEmbedded?'留空 = 使用內建試用 Key':'貼上 API Key';
+}
+function openSettings(){
+  document.getElementById('providerSelect').value=PROVIDER;
+  onProviderChange();
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('show');}
+function saveSettings(){
+  PROVIDER=document.getElementById('providerSelect').value;
+  API_KEY=document.getElementById('apiKeyInput').value.trim();
+  MODEL=document.getElementById('modelSelect').value;
+  localStorage.setItem(LS_PROVIDER,PROVIDER);
+  localStorage.setItem(LS_KEY_PREFIX+PROVIDER,API_KEY);
+  localStorage.setItem(LS_MODEL_PREFIX+PROVIDER,MODEL);
+  updateApiStatus(); closeSettings();
+}
+
+/* =========================================================================
+   處理單元資料庫
+   每個單元有：id, name, abbr, category, desc, residenceTime (h), energy (kWh/m³),
+   capexPerM3 (TWD/m³h), opexPerM3 (TWD/m³h yr), removal: {BOD,COD,TSS,TDS,N,P,hardness,turbidity,pathogens}
+   去除率為「該單元出水濃度 / 進水濃度」剩餘比例的反面，0~1。
+   ========================================================================= */
+const UNITS = [
+  // 前處理 Pretreatment
+  {id:'screen',name:'機械篩網',abbr:'Screen',cat:'前處理',desc:'移除大型固體與漂浮物，保護下游設備',rt:0.05,e:0.02,capex:8000,opex:2000,
+    removal:{BOD:0.05,COD:0.05,TSS:0.20,TDS:0.0,N:0.02,P:0.02,hardness:0,turbidity:0.15,pathogens:0.05}},
+  {id:'grit',name:'沉砂池',abbr:'Grit',cat:'前處理',desc:'去除砂粒等比重大的無機固體',rt:0.05,e:0.01,capex:5000,opex:1500,
+    removal:{BOD:0.05,COD:0.05,TSS:0.20,TDS:0.0,N:0.02,P:0.02,hardness:0,turbidity:0.20,pathogens:0.05}},
+  {id:'eq',name:'調節池 / 均質池',abbr:'EQ',cat:'前處理',desc:'平衡流量與水質負荷波動',rt:6.0,e:0.05,capex:18000,opex:3500,
+    removal:{BOD:0.05,COD:0.05,TSS:0.10,TDS:0,N:0.03,P:0.03,hardness:0,turbidity:0.05,pathogens:0}},
+  {id:'neutral',name:'中和池',abbr:'Neut.',cat:'前處理',desc:'酸鹼中和（加 NaOH / H2SO4 調 pH 6-9）',rt:0.5,e:0.05,capex:12000,opex:18000,
+    removal:{BOD:0,COD:0.05,TSS:0,TDS:0.02,N:0,P:0.05,hardness:0.05,turbidity:0,pathogens:0}},
+
+  // 物理 / 化學 Physical / Chemical
+  {id:'coag',name:'混凝 / 絮凝',abbr:'Coag.',cat:'物化',desc:'加 PAC / FeCl3 + Polymer 形成膠羽',rt:0.5,e:0.10,capex:15000,opex:22000,
+    removal:{BOD:0.30,COD:0.40,TSS:0.85,TDS:0.05,N:0.20,P:0.85,hardness:0.10,turbidity:0.90,pathogens:0.50}},
+  {id:'sed',name:'沉澱池',abbr:'Sed.',cat:'物化',desc:'重力分離絮體（Hazen 沉降）',rt:2.5,e:0.02,capex:20000,opex:3000,
+    removal:{BOD:0.35,COD:0.35,TSS:0.85,TDS:0,N:0.15,P:0.30,hardness:0,turbidity:0.85,pathogens:0.40}},
+  {id:'daf',name:'氣浮 DAF',abbr:'DAF',cat:'物化',desc:'溶氣浮選分離輕質浮渣與油脂',rt:0.5,e:0.30,capex:35000,opex:14000,
+    removal:{BOD:0.40,COD:0.45,TSS:0.90,TDS:0,N:0.10,P:0.60,hardness:0,turbidity:0.90,pathogens:0.40}},
+  {id:'sand',name:'砂濾 / 多介質過濾',abbr:'MMF',cat:'物化',desc:'去除殘餘懸浮物與膠體',rt:0.1,e:0.10,capex:18000,opex:4500,
+    removal:{BOD:0.20,COD:0.20,TSS:0.85,TDS:0,N:0.10,P:0.20,hardness:0,turbidity:0.90,pathogens:0.50}},
+  {id:'chemox',name:'化學氧化（Cl2/ClO2）',abbr:'ChemOx',cat:'物化',desc:'氧化還原物質與消毒',rt:0.3,e:0.10,capex:12000,opex:25000,
+    removal:{BOD:0.30,COD:0.50,TSS:0,TDS:0.05,N:0.40,P:0,hardness:0,turbidity:0.10,pathogens:0.99}},
+
+  // 生物 Biological
+  {id:'cas',name:'活性污泥 CAS',abbr:'CAS',cat:'生物',desc:'IWA ASM1 模型 · 好氧 BOD/COD 降解',rt:6.0,e:0.45,capex:45000,opex:18000,
+    removal:{BOD:0.92,COD:0.85,TSS:0.85,TDS:0.05,N:0.40,P:0.30,hardness:0.05,turbidity:0.85,pathogens:0.70}},
+  {id:'a2o',name:'A²/O 生物除氮除磷',abbr:'A2O',cat:'生物',desc:'厭氧-缺氧-好氧序列，同步除 N/P',rt:12.0,e:0.55,capex:75000,opex:24000,
+    removal:{BOD:0.94,COD:0.88,TSS:0.88,TDS:0.05,N:0.75,P:0.85,hardness:0.05,turbidity:0.88,pathogens:0.75}},
+  {id:'sbr',name:'SBR 序批式反應器',abbr:'SBR',cat:'生物',desc:'單槽完成反應-沉降-排放週期',rt:8.0,e:0.50,capex:55000,opex:20000,
+    removal:{BOD:0.93,COD:0.87,TSS:0.92,TDS:0.05,N:0.70,P:0.55,hardness:0.05,turbidity:0.90,pathogens:0.75}},
+  {id:'mbr',name:'MBR 膜生物反應器',abbr:'MBR',cat:'生物',desc:'生物處理 + UF 膜過濾，產水極清',rt:8.0,e:0.85,capex:120000,opex:38000,
+    removal:{BOD:0.98,COD:0.95,TSS:0.99,TDS:0.05,N:0.80,P:0.60,hardness:0.05,turbidity:0.99,pathogens:0.999}},
+  {id:'mbbr',name:'MBBR 移動床生物膜',abbr:'MBBR',cat:'生物',desc:'附著生長，省空間、抗衝擊',rt:5.0,e:0.55,capex:65000,opex:18000,
+    removal:{BOD:0.92,COD:0.87,TSS:0.80,TDS:0.05,N:0.65,P:0.30,hardness:0.05,turbidity:0.80,pathogens:0.70}},
+  {id:'uasb',name:'UASB 上流厭氧',abbr:'UASB',cat:'生物',desc:'高有機負荷厭氧消化 + 沼氣回收',rt:8.0,e:0.10,capex:50000,opex:8000,
+    removal:{BOD:0.85,COD:0.80,TSS:0.70,TDS:0.05,N:0.20,P:0.15,hardness:0,turbidity:0.70,pathogens:0.85}},
+
+  // 薄膜 Membrane
+  {id:'mf',name:'微濾 MF',abbr:'MF',cat:'薄膜',desc:'0.1 μm 孔徑，去除懸浮、菌',rt:0.05,e:0.20,capex:35000,opex:12000,
+    removal:{BOD:0.30,COD:0.30,TSS:0.99,TDS:0.02,N:0.05,P:0.10,hardness:0,turbidity:0.99,pathogens:0.99}},
+  {id:'uf',name:'超濾 UF',abbr:'UF',cat:'薄膜',desc:'0.01 μm，去除大分子有機物與病毒',rt:0.05,e:0.30,capex:45000,opex:14000,
+    removal:{BOD:0.40,COD:0.40,TSS:0.999,TDS:0.05,N:0.10,P:0.20,hardness:0.05,turbidity:0.999,pathogens:0.999}},
+  {id:'nf',name:'奈濾 NF',abbr:'NF',cat:'薄膜',desc:'分離二價離子（軟化）與小分子',rt:0.1,e:0.65,capex:80000,opex:20000,
+    removal:{BOD:0.85,COD:0.85,TSS:0.99,TDS:0.55,N:0.50,P:0.70,hardness:0.95,turbidity:0.99,pathogens:0.999}},
+  {id:'ro',name:'逆滲透 RO',abbr:'RO',cat:'薄膜',desc:'Solution-Diffusion 模型，截留 98%+ 鹽',rt:0.1,e:1.50,capex:95000,opex:28000,
+    removal:{BOD:0.95,COD:0.95,TSS:0.999,TDS:0.98,N:0.95,P:0.97,hardness:0.99,turbidity:0.999,pathogens:0.999}},
+
+  // 高級處理 Advanced
+  {id:'gac',name:'活性碳吸附 GAC',abbr:'GAC',cat:'高級',desc:'Langmuir 吸附，去除微量有機物與餘氯',rt:0.5,e:0.05,capex:30000,opex:24000,
+    removal:{BOD:0.50,COD:0.70,TSS:0.30,TDS:0.05,N:0.10,P:0.15,hardness:0,turbidity:0.50,pathogens:0.30}},
+  {id:'iex',name:'離子交換 IEX',abbr:'IEX',cat:'高級',desc:'選擇性去除特定離子（軟化/除氮）',rt:0.2,e:0.15,capex:55000,opex:30000,
+    removal:{BOD:0.15,COD:0.20,TSS:0.10,TDS:0.40,N:0.80,P:0.30,hardness:0.99,turbidity:0.10,pathogens:0.10}},
+  {id:'ozone',name:'臭氧 O₃',abbr:'O3',cat:'高級',desc:'強氧化劑，去色去味與消毒',rt:0.1,e:0.40,capex:40000,opex:32000,
+    removal:{BOD:0.40,COD:0.60,TSS:0,TDS:0.02,N:0.20,P:0,hardness:0,turbidity:0.20,pathogens:0.999}},
+  {id:'uv',name:'UV 紫外線消毒',abbr:'UV',cat:'高級',desc:'40-100 mJ/cm² 滅活病原',rt:0.01,e:0.06,capex:18000,opex:6000,
+    removal:{BOD:0,COD:0.02,TSS:0,TDS:0,N:0,P:0,hardness:0,turbidity:0,pathogens:0.9999}},
+  {id:'aop',name:'AOP 高級氧化（O3/H2O2/UV）',abbr:'AOP',cat:'高級',desc:'•OH 自由基處理難分解物質',rt:0.1,e:0.60,capex:50000,opex:42000,
+    removal:{BOD:0.50,COD:0.80,TSS:0,TDS:0.05,N:0.30,P:0.10,hardness:0,turbidity:0.30,pathogens:0.999}},
+  {id:'cdi',name:'電容去離子 CDI',abbr:'CDI',cat:'高級',desc:'低 TDS 水（<2000）省能脫鹽',rt:0.1,e:0.50,capex:80000,opex:18000,
+    removal:{BOD:0.20,COD:0.30,TSS:0.30,TDS:0.85,N:0.80,P:0.85,hardness:0.85,turbidity:0.40,pathogens:0.50}},
+  {id:'edi',name:'EDI 電去離子',abbr:'EDI',cat:'高級',desc:'RO 後段精製，產水電阻可達 18 MΩ',rt:0.05,e:0.30,capex:90000,opex:16000,
+    removal:{BOD:0.50,COD:0.50,TSS:0.50,TDS:0.98,N:0.95,P:0.95,hardness:0.99,turbidity:0.50,pathogens:0.90}},
+
+  // 濃縮 / ZLD
+  {id:'mvr',name:'MVR 機械蒸氣再壓縮',abbr:'MVR',cat:'濃縮',desc:'低耗能蒸發濃縮 RO 濃水',rt:1.0,e:25.0,capex:380000,opex:120000,
+    removal:{BOD:0.99,COD:0.99,TSS:0.99,TDS:0.99,N:0.99,P:0.99,hardness:0.99,turbidity:0.99,pathogens:0.999}},
+  {id:'cryst',name:'結晶器',abbr:'Cryst',cat:'濃縮',desc:'析出鹽類，達成零排放 ZLD',rt:2.0,e:50.0,capex:520000,opex:180000,
+    removal:{BOD:1.0,COD:1.0,TSS:1.0,TDS:1.0,N:1.0,P:1.0,hardness:1.0,turbidity:1.0,pathogens:1.0}},
+];
+
+const CATS=['全部','前處理','物化','生物','薄膜','高級','濃縮'];
+let currentCat='全部';
+let SELECTED=[];   // 已選 unit id 陣列（依序）
+
+/* ===== 渲染處理單元卡片 ===== */
+function renderCatTabs(){
+  const c=document.getElementById('catTabs');
+  c.innerHTML=CATS.map(x=>`<div class="cat-tab ${x===currentCat?'active':''}" onclick="switchCat('${x}')">${x}</div>`).join('');
+}
+function switchCat(c){currentCat=c;renderCatTabs();renderMethods();}
+function renderMethods(){
+  const list=UNITS.filter(u=>currentCat==='全部'||u.cat===currentCat);
+  document.getElementById('methodsGrid').innerHTML=list.map(u=>{
+    const sel=SELECTED.includes(u.id);
+    return `<div class="method ${sel?'selected':''}" onclick="toggleUnit('${u.id}')">
+      <div class="mtag">${u.cat}</div>
+      <div class="mname">${u.name}</div>
+      <div class="mdesc">${u.desc}</div>
+      <div class="mstats">
+        <span>⏱️ ${u.rt}h</span>
+        <span>⚡ ${u.e} kWh/m³</span>
+        <span>💰 ${(u.capex/1000).toFixed(0)}k TWD/m³h</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleUnit(id){
+  const i=SELECTED.indexOf(id);
+  if(i>=0) SELECTED.splice(i,1); else SELECTED.push(id);
+  renderMethods(); renderTrain();
+}
+function removeUnit(idx){ SELECTED.splice(idx,1); renderMethods(); renderTrain(); }
+function clearTrain(){ SELECTED=[]; renderMethods(); renderTrain(); document.getElementById('simPanel').style.display='none'; }
+function renderTrain(){
+  const f=document.getElementById('trainFlow');
+  if(!SELECTED.length){ f.innerHTML='<span class="train-empty">尚未選擇任何單元 — 點上方卡片加入流程</span>'; return; }
+  f.innerHTML=SELECTED.map((id,i)=>{
+    const u=UNITS.find(x=>x.id===id);
+    return (i?'<span class="arrow">→</span>':'')+`<span class="chip">${u.abbr} <span class="x" onclick="event.stopPropagation();removeUnit(${i})">×</span></span>`;
+  }).join('');
+}
+
+/* =========================================================================
+   ★ 智慧推薦組合 ★ — 真的依水質數字判斷
+   ========================================================================= */
+function autoRecommend(){
+  const src=document.getElementById('source').value;
+  const pri=document.getElementById('priority').value;
+  const goal=document.getElementById('goal').value;
+  const reportText=document.getElementById('report').value.trim();
+
+  if(!reportText){
+    showErr('請先輸入或載入檢測報告，這樣才能依水質智慧推薦。');
+    return;
+  }
+  const c=parseReport(reportText);
+  const G=(goal+' '+pri).toLowerCase();
+
+  let train=[], reasons=[];
+
+  // 1. 篩網（一律加）
+  train.push('screen');
+
+  // 2. 沉砂池（高 TSS 或工業/都市污水）
+  if(c.TSS>100 || src==='都市污水'){
+    train.push('grit'); reasons.push(`TSS=${c.TSS.toFixed(0)} mg/L 或都市污水 → 加沉砂池`);
+  }
+
+  // 3. 調節池（流量/負荷會波動）
+  if(['工業廢水','電廠廢水','都市污水','製程回收水','RO 濃水'].includes(src)){
+    train.push('eq'); reasons.push(`${src} 水質波動大 → 調節池均質`);
+  }
+
+  // 4. pH 中和
+  if(c.pH<6 || c.pH>9){
+    train.push('neutral'); reasons.push(`pH=${c.pH} 偏離 6-9 → 中和`);
+  }
+
+  // 5. 高 TSS / 濁度 → 混凝 + 沉澱（油脂多用 DAF）
+  if(c.TSS>50 || c.turbidity>20){
+    train.push('coag');
+    // 含油脂用 DAF，否則沉澱
+    if(/油|grease|oil/i.test(reportText)){
+      train.push('daf'); reasons.push(`高 TSS=${c.TSS.toFixed(0)} 且含油脂 → 混凝 + DAF 氣浮`);
+    } else {
+      train.push('sed'); reasons.push(`高 TSS=${c.TSS.toFixed(0)} / 濁度=${c.turbidity.toFixed(0)} → 混凝 + 沉澱`);
+    }
+  }
+
+  // 6. 生物處理（高有機物）
+  if(c.BOD>20 || c.COD>80){
+    if(c.N>20 || c.P>3){
+      train.push('a2o'); reasons.push(`高 BOD=${c.BOD.toFixed(0)} 且 N=${c.N.toFixed(0)}/P=${c.P.toFixed(0)} → A²/O 同步除碳氮磷`);
+    } else if(c.BOD>300 && src==='工業廢水'){
+      train.push('uasb','cas'); reasons.push(`極高 BOD=${c.BOD.toFixed(0)} → UASB 厭氧 + CAS 後處理`);
+    } else if(c.BOD>100){
+      train.push('mbr'); reasons.push(`高 BOD=${c.BOD.toFixed(0)} → MBR 膜生物反應器（產水更清）`);
+    } else {
+      train.push('cas'); reasons.push(`BOD=${c.BOD.toFixed(0)} → CAS 活性污泥`);
+    }
+  }
+
+  // 7. 砂濾（去殘留 SS）
+  if(c.TSS>10 || train.some(t=>['coag','sed','daf','cas','a2o'].includes(t))){
+    train.push('sand'); reasons.push('砂濾去除殘餘懸浮');
+  }
+
+  // 8. 高 SDI / 鐵錳 → UF 前處理
+  if(/SDI\s*[:>]*\s*[4-9]/i.test(reportText) || /鐵\s+1?\.?\d+|Fe\s+1?\.?\d+/i.test(reportText)){
+    train.push('uf'); reasons.push('高 SDI 或含 Fe/Mn → UF 強化前處理');
+  }
+
+  // 9. 脫鹽決策（最關鍵）
+  const needDesalination = c.TDS>1000 || src.includes('海水') || src==='RO 濃水'
+    || /TDS\s*[<≤]\s*(?:[0-9]{1,3}\b)/i.test(goal) || /脫鹽|純水|超純|去離子/.test(G);
+
+  if(needDesalination){
+    if(!train.includes('uf')) train.push('uf');
+    train.push('ro');
+    if(c.TDS>10000) reasons.push(`極高 TDS=${c.TDS.toFixed(0)}（海水級）→ UF + RO 脫鹽`);
+    else if(c.TDS>3000) reasons.push(`高 TDS=${c.TDS.toFixed(0)} → UF + RO 脫鹽`);
+    else reasons.push(`目標需脫鹽 → UF + RO`);
+  }
+
+  // 10. 高硬度但不需脫鹽 → IEX 軟化
+  if(c.hardness>200 && !train.includes('ro')){
+    train.push('iex'); reasons.push(`硬度=${c.hardness.toFixed(0)} mg/L → IEX 軟化`);
+  }
+
+  // 11. 高 SiO2 警告（會結垢 RO）
+  if(/SiO2\s*[:\s]*([2-9]\d|1\d{2,})/i.test(reportText) && train.includes('ro')){
+    reasons.push('⚠️ SiO2 偏高（>20 mg/L），RO 易結垢，建議降低回收率或加阻垢劑');
+  }
+
+  // 12. 消毒
+  if(/飲用|再生|消毒|大腸|病原|reuse|drinking/i.test(goal+reportText) || c.pathogens>1e4){
+    train.push('uv'); reasons.push('需消毒 → UV 紫外線');
+  }
+
+  // 13. 高級氧化 / 活性碳（COD 難分解、有色、TOC 高）
+  if((c.COD>200 && train.includes('cas')) || /顏色|colored|color/i.test(reportText)){
+    train.push('gac'); reasons.push('殘餘有機物/色度 → GAC 活性碳吸附');
+  }
+
+  // 14. 超純水
+  if(/超純|18\s*MΩ|ultrapure|EDI/i.test(goal)){
+    if(!train.includes('ro')) { train.push('uf','ro'); reasons.push('超純水目標 → 必須 RO'); }
+    train.push('edi'); reasons.push('超純水目標 → EDI 精製');
+  }
+
+  // 15. 高回收率 / ZLD
+  if(/零排放|ZLD|回收率\s*[>≥]\s*(8[0-9]|9\d|100)|zero/i.test(G)){
+    train.push('mvr'); reasons.push('高回收率/ZLD → MVR 蒸發濃縮濃水');
+    if(/ZLD|零排放|zero/i.test(G)){
+      train.push('cryst'); reasons.push('完全零排放 → 結晶器析出鹽分');
+    }
+  }
+
+  // 去重保持順序
+  SELECTED=[...new Set(train)];
+  renderMethods(); renderTrain();
+  showRecommendReasons(reasons, c);
+}
+
+/* ===== AI 推薦組合 — 用 AI 顧問腦袋從單元清單選 ===== */
+async function aiRecommend(){
+  hideErr();
+  if(!hasKey()){ openSettings(); showErr('請先點右上 ⚙️ 設定 AI Key 才能用 AI 推薦。'); return; }
+  const report=document.getElementById('report').value.trim();
+  if(!report){ showErr('請先輸入或載入水質報告。'); return; }
+
+  const goal=document.getElementById('goal').value.trim();
+  const source=document.getElementById('source').value;
+  const capacity=document.getElementById('capacity').value;
+  const priority=document.getElementById('priority').value;
+
+  const catalog=UNITS.map(u=>`  ${u.id} = ${u.name}（${u.cat}，${u.desc}）`).join('\n');
+
+  const prompt=`你是水處理製程工程師。請根據下面資訊，從給定的處理單元清單中挑選並排序，組成最合適的處理流程。
+
+【水源類型】${source}
+【設計產水量】${capacity} m³/h
+【目標導向】${priority}
+【處理目標】${goal}
+
+【進水檢測報告】
+${report.slice(0,2000)}
+
+【可用處理單元 — 必須只從這裡選，使用英文 id】
+${catalog}
+
+請只回傳純 JSON（不要 markdown、不要說明、不要 \`\`\`），結構：
+{
+  "unitIds": ["screen","eq",...],
+  "reasons": ["screen: 移除大型固體", "eq: 調節水質波動", ...],
+  "summary": "整體流程說明（2-3 句）"
+}
+
+注意：
+1. unitIds 必須只用上面清單的英文 id，且按處理順序排列（前處理→主處理→精處理→消毒）
+2. reasons 每個單元一行說明
+3. 不選不必要單元，但該補的關鍵單元別漏（例如高 TDS 必須 RO）`;
+
+  const btn=document.getElementById('aiRecBtn');
+  const orig=btn.innerHTML;
+  btn.disabled=true; btn.innerHTML='🤖 AI 思考中…';
+
+  try {
+    let text=await callAI(prompt);
+    text=text.replace(/```json/gi,'').replace(/```/g,'').replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+    const s=text.indexOf('{'), e=text.lastIndexOf('}');
+    if(s<0||e<0) throw new Error('AI 沒回 JSON');
+    const data=safeJsonParse(text.slice(s,e+1));
+    const validIds=(data.unitIds||[]).filter(id=>UNITS.find(u=>u.id===id));
+    const invalidIds=(data.unitIds||[]).filter(id=>!UNITS.find(u=>u.id===id));
+    if(!validIds.length){
+      // 最後一招：從 reasons 字串再萃取 ID
+      const all=(data.unitIds||[]).concat(Object.keys(data));
+      throw new Error(`AI 沒給有效單元 ID（拿到：${(data.unitIds||[]).join(', ')||'空'}）`);
+    }
+    SELECTED=validIds;
+    renderMethods(); renderTrain();
+    const reasons=(data.reasons||[]).slice();
+    if(data.summary) reasons.unshift('📝 '+data.summary);
+    if(invalidIds.length) reasons.push(`⚠️ AI 提到但本系統不支援：${invalidIds.join(', ')}`);
+    showRecommendReasons(reasons, parseReport(report));
+  } catch(err){
+    showErr('AI 推薦失敗：'+err.message);
+  } finally {
+    btn.disabled=false; btn.innerHTML=orig;
+  }
+}
+
+function showRecommendReasons(reasons, c){
+  let box=document.getElementById('reasonBox');
+  if(!box){
+    box=document.createElement('div');
+    box.id='reasonBox';
+    box.style.cssText='margin-top:12px;padding:14px;background:linear-gradient(135deg,rgba(6,214,160,.08),rgba(34,211,238,.04));border:1px solid rgba(6,214,160,.25);border-radius:12px;font-size:12.5px;line-height:1.6';
+    document.querySelector('.train-bar').appendChild(box);
+  }
+  const summary=`📊 水質特徵：pH=${c.pH}, TDS=${c.TDS.toFixed(0)} mg/L, BOD=${c.BOD.toFixed(0)}, COD=${c.COD.toFixed(0)}, TSS=${c.TSS.toFixed(0)}, 硬度=${c.hardness.toFixed(0)}, N=${c.N.toFixed(0)}, P=${c.P.toFixed(1)}`;
+  box.innerHTML=`<div style="color:var(--cyan);font-weight:700;margin-bottom:8px">🪄 智慧推薦理由（共 ${SELECTED.length} 個單元）</div>
+    <div style="color:var(--muted);font-size:11.5px;margin-bottom:8px">${summary}</div>
+    <ul style="margin:0;padding-left:20px;color:var(--ink)">${reasons.map(r=>`<li style="margin:3px 0">${r}</li>`).join('')}</ul>`;
+}
+
+/* =========================================================================
+   ★ 處理目標預設（產水用途模板）★
+   ========================================================================= */
+const GOAL_PRESETS=[
+  {id:'discharge',name:'放流水（一般工業）',icon:'🌊',
+    text:'處理至符合台灣《放流水標準》：COD < 100 mg/L、BOD < 30 mg/L、TSS < 30 mg/L、pH 6-9、SS < 30、總氮 < 50、總磷 < 4 mg/L'},
+  {id:'discharge_strict',name:'放流水（環境敏感區嚴格）',icon:'🌿',
+    text:'處理至嚴格放流標準：COD < 50、BOD < 10、TSS < 10、NH3-N < 5、TN < 15、TP < 1 mg/L'},
+  {id:'reuse_process',name:'製程回用水',icon:'🔄',
+    text:'回用作為製程補充水：TDS < 500、硬度 < 100、SDI < 3、餘氯 < 0.5 mg/L、回收率 > 70%'},
+  {id:'reuse_cooling',name:'冷卻塔補充水',icon:'❄️',
+    text:'冷卻塔補充水：TDS < 1000、硬度 < 200、Cl < 250、SiO2 < 50、回收率 > 75%'},
+  {id:'ro_reuse',name:'RO 高品質回用水',icon:'💧',
+    text:'RO 高品質回用水：TDS < 100、導電度 < 200 µS/cm、SDI < 3、回收率 > 75%'},
+  {id:'rcw',name:'再生水（都市/再利用）',icon:'♻️',
+    text:'再生水（符合再生水水質標準）：BOD < 10、TSS < 5、濁度 < 2 NTU、大腸桿菌 < 200 MPN/100mL、餘氯 0.2-1.0 mg/L'},
+  {id:'pure',name:'純水（電子工業 / 鍋爐補水）',icon:'⚡',
+    text:'純水：TDS < 10、導電度 < 5 µS/cm、SiO2 < 0.1、TOC < 100 ppb'},
+  {id:'ultrapure',name:'超純水（半導體 EUV / 製藥）',icon:'🔬',
+    text:'超純水：電阻率 > 18 MΩ·cm、TOC < 1 ppb、SiO2 < 1 ppb、微粒 < 0.05 µm 級別、總菌數 < 1 CFU/100mL'},
+  {id:'drinking',name:'飲用水',icon:'🥛',
+    text:'飲用水（符合飲用水水質標準）：TDS < 500、硬度 < 300、Cl < 250、F < 0.8、餘氯 0.2-1.0、大腸桿菌 0 CFU/100mL'},
+  {id:'zld',name:'零排放 ZLD',icon:'🚫',
+    text:'零液體排放（ZLD）：濃水蒸發結晶回收鹽分，全廠液體零外排，回收率 > 95%'},
+];
+
+const COMPLIANCE_CHIPS=[
+  {k:'COD',v:'COD < 100 mg/L'},{k:'COD50',v:'COD < 50 mg/L'},{k:'BOD',v:'BOD < 30 mg/L'},
+  {k:'BOD10',v:'BOD < 10 mg/L'},{k:'TSS',v:'TSS < 30 mg/L'},{k:'TSS10',v:'TSS < 10 mg/L'},
+  {k:'TDS500',v:'TDS < 500 mg/L'},{k:'TDS100',v:'TDS < 100 mg/L'},{k:'TDS10',v:'TDS < 10 mg/L'},
+  {k:'NH3',v:'NH3-N < 5 mg/L'},{k:'TN',v:'TN < 15 mg/L'},{k:'TP',v:'TP < 1 mg/L'},
+  {k:'Turbidity',v:'濁度 < 2 NTU'},{k:'pH',v:'pH 6-9'},
+  {k:'Recovery70',v:'回收率 > 70%'},{k:'Recovery75',v:'回收率 > 75%'},{k:'Recovery95',v:'回收率 > 95%（ZLD）'},
+  {k:'NoColor',v:'去色 / 去味'},{k:'Disinfect',v:'消毒（大腸桿菌 0）'},
+];
+
+function renderGoalPresets(){
+  document.getElementById('goalPresets').innerHTML=GOAL_PRESETS.map(g=>
+    `<div class="cat-tab" onclick="applyGoalPreset('${g.id}')" title="${g.text}">${g.icon} ${g.name}</div>`
+  ).join('');
+  document.getElementById('complianceChips').innerHTML=COMPLIANCE_CHIPS.map(c=>
+    `<span class="cat-tab" onclick="toggleCompliance(this,'${c.v.replace(/'/g,"\\'")}')" style="font-size:11px;padding:4px 9px">${c.v}</span>`
+  ).join('');
+}
+function applyGoalPreset(id){
+  const g=GOAL_PRESETS.find(x=>x.id===id);
+  if(!g) return;
+  document.getElementById('goal').value=g.text;
+  // 高亮被選中的
+  document.querySelectorAll('#goalPresets .cat-tab').forEach(el=>el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+function toggleCompliance(el, txt){
+  const ta=document.getElementById('goal');
+  if(el.classList.contains('active')){
+    el.classList.remove('active');
+    ta.value=ta.value.split(/[；;]\s*/).filter(s=>s.trim()&&s.trim()!==txt.trim()).join('；');
+  } else {
+    el.classList.add('active');
+    const cur=ta.value.trim();
+    ta.value = cur? (cur+(cur.endsWith('；')||cur.endsWith(';')?'':'；')+txt) : txt;
+  }
+}
+
+/* =========================================================================
+   ★ 上傳檢測報告（PDF / Excel / CSV / 文字 / 圖片）★
+   ========================================================================= */
+async function handleFileUpload(e){
+  const f=e.target.files[0]; if(!f) return;
+  const st=document.getElementById('uploadStatus');
+  const name=f.name.toLowerCase(), size=(f.size/1024).toFixed(1)+' KB';
+  st.innerHTML=`📂 處理中：<b>${f.name}</b> (${size})…`;
+  st.style.color='var(--cyan)';
+  try {
+    let text='';
+    if(/\.txt$|\.csv$/.test(name)){
+      text=await f.text();
+    } else if(/\.pdf$/.test(name)){
+      text=await extractPdfText(f);
+    } else if(/\.xlsx?$/.test(name)){
+      text=await extractExcelText(f);
+    } else if(/\.(png|jpe?g|webp)$/.test(name)){
+      text=await extractImageText(f);
+    } else {
+      throw new Error('不支援的檔案格式');
+    }
+    text=text.trim();
+    if(!text) throw new Error('沒有抽出任何文字（檔案可能是掃描影像或加密 PDF）');
+    document.getElementById('report').value=text;
+    st.innerHTML=`✅ 已匯入 <b>${f.name}</b>（${text.length} 字元）— 可在下方框內檢查/編輯`;
+    st.style.color='var(--good)';
+  } catch(err){
+    st.innerHTML=`❌ 失敗：${err.message}`;
+    st.style.color='var(--rose)';
+  } finally {
+    e.target.value=''; // 允許再次選同一檔
+  }
+}
+
+async function extractPdfText(file){
+  if(typeof pdfjsLib==='undefined') throw new Error('PDF 函式庫未載入');
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let out='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    const pageText=tc.items.map(x=>x.str).join(' ');
+    out+=`【第 ${i} 頁】\n${pageText}\n\n`;
+  }
+  return out;
+}
+
+async function extractExcelText(file){
+  if(typeof XLSX==='undefined') throw new Error('Excel 函式庫未載入');
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array'});
+  let out='';
+  wb.SheetNames.forEach(name=>{
+    const ws=wb.Sheets[name];
+    out+=`【工作表：${name}】\n`;
+    // 用 CSV 格式產出，再美化
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    rows.forEach(r=>{ if(r.some(c=>c!==''&&c!=null)) out+=r.join('\t')+'\n'; });
+    out+='\n';
+  });
+  return out;
+}
+
+async function extractImageText(file){
+  if(!hasKey()) throw new Error('圖片辨識需要 AI Key — 請先點右上 ⚙️ 設定（推薦 Google Gemini 免費）');
+  // 轉 base64
+  const dataUrl=await new Promise((res,rej)=>{
+    const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);
+  });
+  const base64=dataUrl.split(',')[1];
+  const mime=file.type||'image/png';
+  const ocrPrompt='這是一張水質檢測報告的影像。請仔細辨識並用繁體中文純文字格式輸出所有水質參數與數值（例如 pH、TDS、COD、BOD、TSS、各種離子濃度、流量、單位…）。一行一個參數，保留原本順序與單位，不要加任何說明或前後文，只要參數列表。';
+
+  if(PROVIDER==='gemini'){
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(effectiveKey())}`;
+    const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:ocrPrompt},{inline_data:{mime_type:mime,data:base64}}]}],generationConfig:{maxOutputTokens:4096}})});
+    if(!r.ok){ const t=await r.text(); throw new Error('Gemini 影像辨識失敗：'+t.slice(0,200)); }
+    const j=await r.json();
+    return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+  }
+  if(PROVIDER==='anthropic'){
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':effectiveKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:4096,messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:base64}},
+        {type:'text',text:ocrPrompt}
+      ]}]})});
+    if(!r.ok){ const t=await r.text(); throw new Error('Claude 影像辨識失敗：'+t.slice(0,200)); }
+    const j=await r.json();
+    return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  }
+  // OpenAI 相容 (Groq/OpenRouter) — 部分模型支援 image_url
+  const endpoints={groq:'https://api.groq.com/openai/v1/chat/completions',openrouter:'https://openrouter.ai/api/v1/chat/completions'};
+  const headers={'content-type':'application/json','Authorization':'Bearer '+effectiveKey()};
+  if(PROVIDER==='openrouter'){headers['HTTP-Referer']='https://watersim.local';headers['X-Title']='WaterSim Pro';}
+  const r=await fetch(endpoints[PROVIDER],{method:'POST',headers,body:JSON.stringify({
+    model:MODEL,max_tokens:4096,
+    messages:[{role:'user',content:[
+      {type:'text',text:ocrPrompt},
+      {type:'image_url',image_url:{url:dataUrl}}
+    ]}]
+  })});
+  if(!r.ok){ const t=await r.text(); throw new Error(`${PROVIDER} 影像辨識失敗（請改用支援視覺的模型如 llama-3.2-vision / gemini）：`+t.slice(0,200)); }
+  const j=await r.json();
+  return j.choices?.[0]?.message?.content||'';
+}
+
+/* ===== 範例報告 ===== */
+function loadSample(t){
+  const samples={
+    industrial:`進水水質檢測報告（工業廢水）
+─────────────────────
+pH                7.8
+導電度            5,500 µS/cm
+TDS              3,500 mg/L
+總硬度(as CaCO3)   850 mg/L
+鈣 Ca             220 mg/L
+鎂 Mg              75 mg/L
+鈉 Na             680 mg/L
+氯 Cl           1,200 mg/L
+硫酸鹽 SO4         480 mg/L
+碳酸氫鹽 HCO3      320 mg/L
+二氧化矽 SiO2       35 mg/L
+鐵 Fe             1.2 mg/L
+錳 Mn             0.3 mg/L
+總懸浮固體 TSS      45 mg/L
+濁度              12 NTU
+SDI              >6
+COD              180 mg/L
+BOD5              45 mg/L
+TOC              25 mg/L
+總氮 TN           18 mg/L
+總磷 TP            3 mg/L`,
+    municipal:`進水水質檢測報告（都市污水）
+─────────────────────
+pH                7.2
+TDS              650 mg/L
+總懸浮固體 TSS    280 mg/L
+濁度              85 NTU
+COD              450 mg/L
+BOD5             220 mg/L
+氨氮 NH3-N        38 mg/L
+總氮 TN           55 mg/L
+總磷 TP            7 mg/L
+大腸桿菌群     2.5×10⁶ MPN/100mL
+油脂類            18 mg/L`,
+    seawater:`進水水質檢測報告（海水 / 半鹹水）
+─────────────────────
+pH                8.0
+TDS             32,000 mg/L
+鈉 Na           10,800 mg/L
+氯 Cl           19,400 mg/L
+硫酸鹽 SO4       2,700 mg/L
+鈣 Ca              410 mg/L
+鎂 Mg            1,290 mg/L
+二氧化矽 SiO2        2 mg/L
+鐵                <0.1 mg/L
+TSS                  3 mg/L
+濁度               0.8 NTU
+COD                 5 mg/L
+SDI                3.5`,
+  };
+  document.getElementById('report').value=samples[t]||samples.industrial;
+  if(t==='industrial'){document.getElementById('goal').value='回收再利用作為製程補充水，產水 TDS < 100 mg/L、回收率 > 75%';document.getElementById('source').value='工業廢水';document.getElementById('project').value='A 廠廢水回收示範案';}
+  if(t==='municipal'){document.getElementById('goal').value='符合都市污水放流標準（BOD<10, TSS<10, NH3-N<3）';document.getElementById('source').value='都市污水';document.getElementById('project').value='B 市污水處理廠';}
+  if(t==='seawater'){document.getElementById('goal').value='海水淡化生產飲用水，TDS<300, 回收率 45%';document.getElementById('source').value='海水 / 半鹹水';document.getElementById('project').value='C 海水淡化廠';}
+}
+
+/* =========================================================================
+   ★ 動力學模擬核心 ★
+   解析進水報告 → 串接所選處理單元 → 對每個污染物逐級計算濃度
+   ========================================================================= */
+function parseReport(text){
+  // 從自由文本中抽取污染物濃度
+  const c={BOD:200,COD:400,TSS:200,TDS:1000,N:30,P:5,hardness:200,turbidity:30,pathogens:1e5,pH:7};
+  const m=(re,key,mult=1)=>{const r=text.match(re); if(r){c[key]=parseFloat(r[1].replace(/,/g,''))*mult;}};
+  m(/BOD\s*5?\s*[:\s]*([\d,.]+)/i,'BOD');
+  m(/COD\s*[:\s]*([\d,.]+)/i,'COD');
+  m(/(?:TSS|懸浮[^0-9]*)\s*[:\s]*([\d,.]+)/i,'TSS');
+  m(/TDS\s*[:\s]*([\d,.]+)/i,'TDS');
+  m(/(?:TN|總氮|氨氮|NH3-N)\s*[:\s\-]*([\d,.]+)/i,'N');
+  m(/(?:TP|總磷)\s*[:\s]*([\d,.]+)/i,'P');
+  m(/(?:總硬度|硬度|CaCO3)\s*[^0-9]*([\d,.]+)/i,'hardness');
+  m(/濁度\s*[:\s]*([\d,.]+)/i,'turbidity');
+  m(/pH\s*[:\s]*([\d.]+)/i,'pH');
+  m(/大腸桿菌[^0-9]*([\d.]+)/i,'pathogens',1e6);
+  return c;
+}
+
+function simulateTrain(inputConc, unitIds){
+  // 對每個污染物，依序通過每個單元，concentration *= (1 - removal)
+  const series=[Object.assign({},inputConc)];   // 階段 0 = 進水
+  const stages=[{name:'進水',unit:null}];
+  unitIds.forEach(id=>{
+    const u=UNITS.find(x=>x.id===id);
+    if(!u) return;
+    const prev=series[series.length-1];
+    const cur={};
+    for(const k of Object.keys(prev)){
+      if(k==='pH'){ cur[k]=prev[k]; continue; }
+      const rem=(u.removal&&u.removal[k]!=null)?u.removal[k]:0;
+      cur[k]=prev[k]*(1-rem);
+    }
+    series.push(cur);
+    stages.push({name:u.abbr,unit:u});
+  });
+  // 累計指標
+  const totalRT=unitIds.reduce((a,id)=>a+(UNITS.find(x=>x.id===id)?.rt||0),0);
+  const totalE=unitIds.reduce((a,id)=>a+(UNITS.find(x=>x.id===id)?.e||0),0);
+  const cap=parseFloat(document.getElementById('capacity').value)||50; // m³/h
+  const capex=unitIds.reduce((a,id)=>a+(UNITS.find(x=>x.id===id)?.capex||0),0)*cap;
+  const opex=unitIds.reduce((a,id)=>a+(UNITS.find(x=>x.id===id)?.opex||0),0)*cap;
+  const energyCostYr=totalE*cap*24*365*4; // 4 TWD/kWh 假設
+  return {series, stages, totalRT, totalE, capex, opex, energyCostYr, cap};
+}
+
+/* =========================================================================
+   ★ 動畫渲染 ★ — 用 SVG 畫出處理流程，水流動、污染物濃度即時下降
+   ========================================================================= */
+function drawFlowSvg(stages, progress=1){
+  const g=document.getElementById('flowG');
+  const n=stages.length;
+  if(n<2){ g.innerHTML='<text x="600" y="130" text-anchor="middle" fill="#7a92b8" font-size="14">請先選擇處理單元</text>'; return; }
+  const totalW=1140, startX=30, y=130;
+  const dx=totalW/(n-1);
+  let html='';
+  // 連接線
+  for(let i=0;i<n-1;i++){
+    const x1=startX+i*dx+45, x2=startX+(i+1)*dx-45;
+    const active=progress>i/(n-1);
+    if(active){
+      html+=`<path class="water-flow" d="M${x1} ${y} L${x2} ${y}"/>`;
+    } else {
+      html+=`<path stroke="#1a3460" stroke-width="3" fill="none" stroke-dasharray="6 6" d="M${x1} ${y} L${x2} ${y}"/>`;
+    }
+  }
+  // 階段方塊
+  stages.forEach((s,i)=>{
+    const cx=startX+i*dx, active=progress>=i/(n-1);
+    const col= i===0?'#22d3ee':(i===n-1?'#06d6a0':'#60a5fa');
+    const r=42;
+    html+=`<rect x="${cx-r}" y="${y-r}" width="${r*2}" height="${r*2}" rx="14"
+      fill="url(#tankGrad)" stroke="${active?col:'#2a3f5f'}" stroke-width="${active?2.5:1.5}"
+      ${active?`filter="drop-shadow(0 0 12px ${col}88)"`:''}/>`;
+    // 水位 (內部填色)
+    if(active){
+      const h=r*1.4;
+      html+=`<rect x="${cx-r+6}" y="${y+r-h+6}" width="${r*2-12}" height="${h-12}" rx="6" fill="${col}" opacity="0.18"/>`;
+      // bubbles
+      const t=Date.now()/300+i;
+      for(let b=0;b<3;b++){
+        const bx=cx-15+((b*9+Math.sin(t+b)*4)%30);
+        const by=y+r-8-((t*12+b*15)%50);
+        html+=`<circle cx="${bx}" cy="${by}" r="2.5" fill="url(#bubbleGrad)" opacity="0.7"/>`;
+      }
+    }
+    html+=`<text x="${cx}" y="${y-6}" text-anchor="middle" fill="${active?'#fff':'#5b7077'}" font-size="13" font-weight="700">${s.name}</text>`;
+    if(s.unit){
+      html+=`<text x="${cx}" y="${y+12}" text-anchor="middle" fill="${active?'#7a92b8':'#3a4a6a'}" font-size="9">⏱️${s.unit.rt}h ⚡${s.unit.e}</text>`;
+    } else {
+      html+=`<text x="${cx}" y="${y+12}" text-anchor="middle" fill="${active?'#7a92b8':'#3a4a6a'}" font-size="9">原水</text>`;
+    }
+    // 階段標籤底下
+    html+=`<text x="${cx}" y="${y+r+18}" text-anchor="middle" fill="#5b7077" font-size="10">第 ${i} 階段</text>`;
+  });
+  g.innerHTML=html;
+}
+
+/* ===== Chart.js 初始化 ===== */
+function initCharts(stages, series){
+  const labels=stages.map(s=>s.name);
+  const pollutants=['BOD','COD','TSS','TDS','N','P'];
+  const colors={BOD:'#22d3ee',COD:'#60a5fa',TSS:'#a78bfa',TDS:'#fb7185',N:'#fbbf24',P:'#06d6a0'};
+
+  // 銷毀舊圖
+  if(chartConc) chartConc.destroy();
+  if(chartRem) chartRem.destroy();
+
+  const inputC=series[0];
+  const concData=pollutants.map(p=>({
+    label:p, data:Array(stages.length).fill(null),
+    borderColor:colors[p], backgroundColor:colors[p]+'30',
+    tension:.35, borderWidth:2.5, pointRadius:3.5, pointHoverRadius:6, fill:false
+  }));
+  const remData=pollutants.map(p=>({
+    label:p, data:Array(stages.length).fill(null),
+    borderColor:colors[p], backgroundColor:colors[p]+'30',
+    tension:.35, borderWidth:2.5, pointRadius:3.5, pointHoverRadius:6, fill:false
+  }));
+
+  const baseOpts={
+    responsive:true, maintainAspectRatio:false, animation:false,
+    plugins:{
+      legend:{labels:{color:'#7a92b8',font:{size:11},boxWidth:12}},
+      tooltip:{backgroundColor:'#0a1628',titleColor:'#06d6a0',bodyColor:'#e8f1ff',borderColor:'#22d3ee',borderWidth:1}
+    },
+    scales:{
+      x:{ticks:{color:'#7a92b8',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{ticks:{color:'#7a92b8',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true}
+    }
+  };
+
+  chartConc=new Chart(document.getElementById('chartConc'),{type:'line',data:{labels,datasets:concData},options:Object.assign({},baseOpts,{scales:Object.assign({},baseOpts.scales,{y:Object.assign({},baseOpts.scales.y,{type:'logarithmic',title:{display:true,text:'mg/L (log)',color:'#7a92b8',font:{size:11}}})})})});
+  chartRem=new Chart(document.getElementById('chartRem'),{type:'line',data:{labels,datasets:remData},options:Object.assign({},baseOpts,{scales:Object.assign({},baseOpts.scales,{y:Object.assign({},baseOpts.scales.y,{max:100,title:{display:true,text:'去除率 %',color:'#7a92b8',font:{size:11}}})})})});
+
+  return {pollutants, inputC, concData, remData};
+}
+
+/* ===== 主模擬流程 ===== */
+async function runSimulation(){
+  hideErr();
+  if(!SELECTED.length){ showErr('請先選擇至少一個處理單元。'); return; }
+  const report=document.getElementById('report').value.trim();
+  if(!report){ showErr('請先輸入或載入檢測報告。'); return; }
+  const conc=parseReport(report);
+  SIM_RESULT=simulateTrain(conc, SELECTED);
+  document.getElementById('simPanel').style.display='block';
+  document.getElementById('simPanel').scrollIntoView({behavior:'smooth'});
+
+  const {stages, series, totalRT, totalE, capex, opex, energyCostYr, cap}=SIM_RESULT;
+  const ch=initCharts(stages, series);
+  drawFlowSvg(stages, 0);
+  renderSimKpis(SIM_RESULT, series);
+
+  // 動畫：階段一個一個逐步點亮，並更新圖表
+  document.getElementById('simBtn').disabled=true;
+  const totalDur=Math.min(6000, 800*stages.length);
+  const startT=performance.now();
+  let lastStage=-1;
+  const tick=(now)=>{
+    const t=Math.min(1,(now-startT)/totalDur);
+    document.getElementById('simTime').textContent=(t*totalRT).toFixed(2)+' h (模擬)';
+    document.getElementById('simProg').textContent=Math.round(t*100)+'%';
+    const stageIdx=Math.min(stages.length-1, Math.floor(t*stages.length));
+    if(stageIdx!==lastStage){
+      // 將該階段的數據加入圖表
+      ch.pollutants.forEach((p,i)=>{
+        ch.concData[i].data[stageIdx]=series[stageIdx][p];
+        const rem=(1-series[stageIdx][p]/(ch.inputC[p]||1))*100;
+        ch.remData[i].data[stageIdx]=Math.max(0,Math.min(100,rem));
+      });
+      chartConc.update('none'); chartRem.update('none');
+      document.getElementById('simStage').textContent=stages[stageIdx].name;
+      lastStage=stageIdx;
+    }
+    drawFlowSvg(stages, t);
+    if(t<1) requestAnimationFrame(tick);
+    else {
+      document.getElementById('simBtn').disabled=false;
+      document.getElementById('simStage').textContent='完成 ✓';
+      // 持續刷新動畫(氣泡)
+      const loop=()=>{ if(document.getElementById('simPanel').style.display!=='none'){ drawFlowSvg(stages,1); requestAnimationFrame(loop);} };
+      loop();
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+function renderSimKpis(r, series){
+  const last=series[series.length-1], inp=series[0];
+  const pct=k=>inp[k]?(((inp[k]-last[k])/inp[k])*100).toFixed(1)+'%':'—';
+  const cap=r.cap;
+  document.getElementById('simKpis').innerHTML=`
+    <div class="kpi"><div class="lbl">總滯留時間</div><div class="val">${r.totalRT.toFixed(1)}</div><div class="unit">小時</div></div>
+    <div class="kpi"><div class="lbl">總能耗</div><div class="val">${r.totalE.toFixed(2)}</div><div class="unit">kWh/m³</div></div>
+    <div class="kpi"><div class="lbl">建置成本 CAPEX</div><div class="val">${(r.capex/1e6).toFixed(2)}M</div><div class="unit">TWD</div></div>
+    <div class="kpi"><div class="lbl">年運維 OPEX</div><div class="val">${((r.opex+r.energyCostYr)/1e6).toFixed(2)}M</div><div class="unit">TWD/年</div></div>
+    <div class="kpi"><div class="lbl">BOD 去除率</div><div class="val">${pct('BOD')}</div><div class="unit">出水 ${last.BOD.toFixed(1)} mg/L</div></div>
+    <div class="kpi"><div class="lbl">COD 去除率</div><div class="val">${pct('COD')}</div><div class="unit">出水 ${last.COD.toFixed(1)} mg/L</div></div>
+    <div class="kpi"><div class="lbl">TDS 去除率</div><div class="val">${pct('TDS')}</div><div class="unit">出水 ${last.TDS.toFixed(0)} mg/L</div></div>
+    <div class="kpi"><div class="lbl">TSS 去除率</div><div class="val">${pct('TSS')}</div><div class="unit">出水 ${last.TSS.toFixed(1)} mg/L</div></div>
+  `;
+}
+
+/* =========================================================================
+   ★ AI 深度分析 ★ — 從瀏覽器直接呼叫 Anthropic API
+   ========================================================================= */
+const SCHEMA = `
+請只回傳一個 JSON 物件，不要任何前言、說明或 markdown 標記（不要 \`\`\`）。
+所有文字用繁體中文，成本以新台幣 TWD 估算（純數字、不含逗號與單位）。JSON 結構：
+{
+ "diagnosis": {
+   "summary": "2-3 句水質總體診斷",
+   "scalingRisk": "結垢風險評估（CaCO3/CaSO4/SiO2 等）",
+   "foulingRisk": "膜污染風險（TSS、SDI、有機物、鐵錳）",
+   "keyParams": [{"name":"參數","value":"數值","note":"處理意義"}]
+ },
+ "trains": [
+   {
+     "name":"方案名稱",
+     "recommended":true,
+     "unitIds":["screen","eq","coag","sed","sand","uf","ro"],
+     "steps":["篩網","調節池","混凝","沉澱","砂濾","UF","RO"],
+     "rationale":"理由",
+     "expectedProductTDS":"預估產水 TDS",
+     "expectedRecovery":"預估回收率%",
+     "suitability":"high"
+   }
+ ],
+ "equipment": [{"name":"設備","spec":"規格","qty":"數量","note":"用途"}],
+ "costs": {
+   "currency":"TWD",
+   "capex":[{"item":"項目","cost":0,"note":""}],
+   "opexAnnual":[{"item":"項目","cost":0,"note":""}],
+   "consumablesAnnual":[{"item":"耗材","cycle":"週期","cost":0,"note":""}]
+ },
+ "notes":"補充建議"
+}
+
+★★★ unitIds 必須只能從下列清單選（嚴格使用這些英文 ID，照處理順序排列）：
+  screen=機械篩網 / grit=沉砂池 / eq=調節池 / neutral=中和池
+  coag=混凝絮凝 / sed=沉澱池 / daf=DAF氣浮 / sand=砂濾 / chemox=化學氧化
+  cas=活性污泥 / a2o=A²/O / sbr=SBR / mbr=MBR / mbbr=MBBR / uasb=UASB
+  mf=微濾 / uf=超濾 / nf=奈濾 / ro=逆滲透
+  gac=活性碳 / iex=離子交換 / ozone=臭氧 / uv=UV / aop=AOP / cdi=CDI / edi=EDI
+  mvr=MVR蒸發 / cryst=結晶器
+
+要求：
+1. 提供 2-3 個 trains，recommended:true 僅一個；suitability 用 high/medium/low。
+2. 每個方案的 unitIds 必須從上面清單選，steps 是對應的中文顯示名稱（兩個陣列長度要相同）。
+3. 設備清單對應推薦方案。
+4. 成本分 capex / opexAnnual / consumablesAnnual 三類。
+5. 若目標含 ZLD，評估 mvr 或 cryst。
+`;
+
+/* 安全 JSON 解析：自動修復常見 AI 輸出錯誤 */
+function safeJsonParse(text){
+  // 直接試
+  try { return JSON.parse(text); } catch(e0){
+    // 一系列修復策略
+    let t=text
+      // 智慧引號 → 普通引號
+      .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
+      // 全形標點 → 半形（只在 JSON 結構處安全替換）
+      .replace(/，(\s*[}\]"\d\-])/g,',$1')
+      .replace(/：(\s*[\d"{[\-])/g,':$1')
+      // 移除尾隨逗號 ,] 或 ,}
+      .replace(/,(\s*[}\]])/g,'$1')
+      // 物件/陣列間漏逗號（不論換不換行）
+      .replace(/}(\s*)\{/g,'},$1{')
+      .replace(/](\s*)\[/g,'],$1[')
+      .replace(/}(\s*)\[/g,'},$1[')
+      .replace(/](\s*)\{/g,'],$1{')
+      // 物件/陣列後接 key 漏逗號：}"key" → },"key"
+      .replace(/}(\s*)("[a-zA-Z_])/g,'},$1$2')
+      .replace(/](\s*)("[a-zA-Z_])/g,'],$1$2')
+      // 字串值後接 key 漏逗號："val""key": → "val","key":
+      .replace(/"(\s*)("[a-zA-Z_][a-zA-Z0-9_]*"\s*:)/g,'",$1$2')
+      // 數字/bool/null 後接 key：123"key" → 123,"key"
+      .replace(/(\d|true|false|null)(\s*)("[a-zA-Z_][a-zA-Z0-9_]*"\s*:)/g,'$1,$2$3');
+    try { return JSON.parse(t); } catch(e1){
+      // 第二輪：把錯誤位置附近顯示出來方便除錯
+      const m=e1.message.match(/position (\d+)/);
+      const pos=m?parseInt(m[1],10):0;
+      const ctx=t.slice(Math.max(0,pos-80),pos+80);
+      throw new Error(`JSON 解析失敗（已嘗試自動修復）：${e1.message}\n出問題附近：…${ctx}…`);
+    }
+  }
+}
+
+/* 帶自動重試的 fetch：遇 429/503/502 自動 retry，並支援模型降級 */
+async function fetchWithRetry(url, init, label){
+  const maxRetry=3;
+  const delays=[1500, 3500, 7500]; // ms
+  let lastErr;
+  for(let i=0;i<=maxRetry;i++){
+    try {
+      const r=await fetch(url, init);
+      if(r.ok) return r;
+      const txt=await r.text();
+      // 可重試錯誤
+      if([429,500,502,503,504].includes(r.status) && i<maxRetry){
+        await new Promise(res=>setTimeout(res, delays[i]||5000));
+        continue;
+      }
+      throw new Error(`${label} ${r.status}: ${txt.slice(0,200)}`);
+    } catch(e){
+      lastErr=e;
+      if(i<maxRetry && /NetworkError|Failed to fetch|TypeError/i.test(e.message)){
+        await new Promise(res=>setTimeout(res, delays[i]||5000));
+        continue;
+      }
+      // 503/429 的最後嘗試 → 拋出附加建議
+      if(/503|429|UNAVAILABLE|overload|high demand/i.test(e.message)){
+        const tip = PROVIDER==='gemini' && MODEL.includes('pro')
+          ? '\n\n💡 建議：Gemini 2.5 Pro 常滿，請去 ⚙️ 切換到 gemini-2.5-flash 或 gemini-2.5-flash-lite（速度更快、配額更多）'
+          : '\n\n💡 建議：稍待 30 秒重試，或去 ⚙️ 換一個提供商（Groq 通常最穩）';
+        throw new Error(e.message + tip);
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
+/* 統一 AI 呼叫介面 — 支援 Anthropic / Gemini / Groq / OpenRouter */
+async function callAI(prompt){
+  if(PROVIDER==='anthropic'){
+    const r=await fetchWithRetry('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':effectiveKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:8000,messages:[{role:'user',content:prompt}]})
+    },'Anthropic');
+    const j=await r.json();
+    return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  }
+  if(PROVIDER==='gemini'){
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(effectiveKey())}`;
+    const r=await fetchWithRetry(url,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],
+        generationConfig:{maxOutputTokens:8192,temperature:0.7,responseMimeType:'application/json'}})
+    },'Gemini');
+    const j=await r.json();
+    const cand=(j.candidates||[])[0];
+    if(!cand) throw new Error('Gemini 沒回 candidate（可能被 safety 攔截，請換更明確的描述）');
+    return (cand.content?.parts||[]).map(p=>p.text||'').join('');
+  }
+  const endpoints={groq:'https://api.groq.com/openai/v1/chat/completions',openrouter:'https://openrouter.ai/api/v1/chat/completions'};
+  const headers={'content-type':'application/json','Authorization':'Bearer '+effectiveKey()};
+  if(PROVIDER==='openrouter'){headers['HTTP-Referer']='https://watersim.local';headers['X-Title']='WaterSim Pro';}
+  const body={model:MODEL,max_tokens:8000,temperature:0.7,messages:[{role:'user',content:prompt}]};
+  if(PROVIDER==='groq' && /llama|mixtral|deepseek/.test(MODEL)){body.response_format={type:'json_object'};}
+  const r=await fetchWithRetry(endpoints[PROVIDER],{method:'POST',headers,body:JSON.stringify(body)},PROVIDER);
+  const j=await r.json();
+  return (j.choices||[{}])[0]?.message?.content||'';
+}
+
+async function runAIAnalysis(){
+  hideErr();
+  if(!hasKey()){
+    openSettings();
+    showErr('請先在右上角 ⚙️ 選擇 AI 提供商並輸入 API Key（推薦 Google Gemini，免費 1500 次/天）。');
+    return;
+  }
+  const report=document.getElementById('report').value.trim();
+  if(!report){ showErr('請先輸入或載入檢測報告。'); return; }
+
+  const inputData={
+    report, source:document.getElementById('source').value,
+    capacity:document.getElementById('capacity').value, goal:document.getElementById('goal').value,
+    priority:document.getElementById('priority').value,
+    selectedTrain: SELECTED.length? SELECTED.map(id=>UNITS.find(u=>u.id===id)?.name).join(' → '):'未選擇 — 請推薦',
+    simulationResult: SIM_RESULT? {
+      lastStage:SIM_RESULT.series[SIM_RESULT.series.length-1],
+      totalRT:SIM_RESULT.totalRT, energy:SIM_RESULT.totalE,
+      capex:SIM_RESULT.capex, opex:SIM_RESULT.opex
+    }: null
+  };
+
+  const prompt=
+    `你是一位資深水處理製程工程師，專精 RO、UF、MBR、CAS、A2O、CDI、MVR 與前處理系統的設計及技術經濟分析。\n\n`+
+    `以下為進水檢測報告與設計條件，請完成完整製程設計分析。\n\n`+
+    `【水源類型】${inputData.source}\n`+
+    `【設計產水量】${inputData.capacity} m³/h\n`+
+    `【目標導向】${inputData.priority}\n`+
+    `【處理目標】${inputData.goal}\n`+
+    `【使用者已選流程】${inputData.selectedTrain}\n`+
+    (inputData.simulationResult? `【模擬結果摘要】${JSON.stringify(inputData.simulationResult)}\n`:'')+
+    `\n【進水檢測報告】\n${report}\n\n`+SCHEMA;
+
+  document.getElementById('loading').style.display='block';
+  document.getElementById('results').style.display='none';
+  document.getElementById('aiBtn').disabled=true;
+
+  const steps=['解析檢測報告…','評估結垢與膜污染風險…','比對各製程適用性…','生成候選方案與設備清單…','估算 CAPEX / OPEX / 耗材成本…','整理建議與風險…'];
+  const sl=document.getElementById('stepLog'), pb=document.getElementById('progBar');
+  sl.innerHTML=steps.map((s,i)=>`<div id="sl${i}">${i===0?'▶ ':'　'}${s}</div>`).join('');
+  let si=0; document.getElementById('status').textContent=steps[0];
+  document.getElementById(`sl0`).classList.add('active');
+  const stepT=setInterval(()=>{
+    document.getElementById(`sl${si}`).classList.remove('active');
+    document.getElementById(`sl${si}`).classList.add('done');
+    si=Math.min(steps.length-1,si+1);
+    document.getElementById(`sl${si}`).classList.add('active');
+    document.getElementById('status').textContent=steps[si];
+    pb.style.width=Math.min(85, (si+1)*15)+'%';
+  },2200);
+
+  try {
+    let text = await callAI(prompt);
+    text=text.replace(/```json/gi,'').replace(/```/g,'').trim();
+    // DeepSeek R1 / 推理模型可能輸出 <think>...</think>，先剝掉
+    text=text.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+    const s=text.indexOf('{'), e=text.lastIndexOf('}');
+    if(s<0||e<0) throw new Error('AI 回傳沒有 JSON 物件。原文片段：'+text.slice(0,200));
+    DATA=safeJsonParse(text.slice(s,e+1));
+    DATA._meta={
+      project:document.getElementById('project').value.trim()||'水處理製程設計',
+      capacity:document.getElementById('capacity').value.trim(),
+      goal:document.getElementById('goal').value.trim(),
+      source:document.getElementById('source').value,
+      date:new Date().toLocaleDateString('zh-TW')
+    };
+    pb.style.width='100%';
+    renderAIResults(DATA);
+  } catch(err){
+    showErr('AI 分析失敗：'+err.message);
+  } finally {
+    clearInterval(stepT);
+    document.getElementById('loading').style.display='none';
+    document.getElementById('aiBtn').disabled=false;
+  }
+}
+
+function fmt(n){return (Number(n)||0).toLocaleString('en-US');}
+function sumArr(arr){return (arr||[]).reduce((a,b)=>a+(Number(b.cost)||0),0);}
+
+/* 把 AI 的 step 文字名稱模糊比對到我們的 unit ID */
+const STEP_ALIAS={
+  '篩網':'screen','機械篩網':'screen','screen':'screen','screening':'screen','grit':'grit','沉砂':'grit','沉砂池':'grit',
+  '調節':'eq','調節池':'eq','均質池':'eq','均勻池':'eq','eq':'eq','equalization':'eq','均質':'eq',
+  '中和':'neutral','中和池':'neutral','ph調整':'neutral','neutralization':'neutral','酸鹼中和':'neutral',
+  '混凝':'coag','絮凝':'coag','混凝絮凝':'coag','coag':'coag','coagulation':'coag','flocculation':'coag','加藥':'coag',
+  '沉澱':'sed','沉澱池':'sed','沈澱':'sed','沈澱池':'sed','clarifier':'sed','sedimentation':'sed',
+  'daf':'daf','氣浮':'daf','溶氣浮選':'daf','dissolved air':'daf',
+  '砂濾':'sand','多介質':'sand','multimedia':'sand','sand':'sand','mmf':'sand','過濾':'sand',
+  '化學氧化':'chemox','加氯':'chemox','次氯酸':'chemox','chlorination':'chemox','chemox':'chemox',
+  '活性污泥':'cas','cas':'cas','傳統活性污泥':'cas','as':'cas',
+  'a2o':'a2o','a²/o':'a2o','a2/o':'a2o','厭氧缺氧好氧':'a2o','除氮除磷':'a2o',
+  'sbr':'sbr','序批式':'sbr','序列批次':'sbr','sequencing batch':'sbr',
+  'mbr':'mbr','膜生物反應器':'mbr','膜生物':'mbr',
+  'mbbr':'mbbr','移動床':'mbbr','生物膜':'mbbr',
+  'uasb':'uasb','上流厭氧':'uasb','厭氧':'uasb',
+  'mf':'mf','微濾':'mf','microfiltration':'mf',
+  'uf':'uf','超濾':'uf','ultrafiltration':'uf',
+  'nf':'nf','奈濾':'nf','nanofiltration':'nf',
+  'ro':'ro','逆滲透':'ro','反滲透':'ro','reverse osmosis':'ro',
+  'gac':'gac','活性碳':'gac','carbon':'gac','activated carbon':'gac',
+  'iex':'iex','離子交換':'iex','軟化':'iex','softening':'iex','ion exchange':'iex',
+  '臭氧':'ozone','ozone':'ozone','o3':'ozone',
+  'uv':'uv','紫外線':'uv','紫外':'uv',
+  'aop':'aop','高級氧化':'aop','advanced oxidation':'aop',
+  'cdi':'cdi','電容去離子':'cdi','電去離子':'cdi','capacitive':'cdi',
+  'edi':'edi','電去離子':'edi','electrodeionization':'edi',
+  'mvr':'mvr','機械蒸氣':'mvr','蒸發':'mvr','evaporator':'mvr',
+  '結晶':'cryst','結晶器':'cryst','crystallizer':'cryst','crystallization':'cryst','zld':'cryst',
+  // 通用詞 → 跳過或對應預設
+  '前處理':'screen','預處理':'screen','pretreatment':'screen',
+  '後處理':'uv','消毒':'uv','disinfection':'uv',
+};
+function matchStepsToUnitIds(steps){
+  const ids=[];
+  steps.forEach(s=>{
+    const k=String(s||'').toLowerCase().trim();
+    // 完全比對
+    if(STEP_ALIAS[k]){ ids.push(STEP_ALIAS[k]); return; }
+    // 包含比對
+    for(const [alias,id] of Object.entries(STEP_ALIAS)){
+      if(k.includes(alias)||alias.includes(k)){ ids.push(id); return; }
+    }
+  });
+  return [...new Set(ids)];
+}
+
+function applyAITrain(ids){
+  if(!ids||!ids.length) return;
+  SELECTED=ids.filter(id=>UNITS.find(u=>u.id===id));
+  renderMethods(); renderTrain();
+  document.querySelector('.train-bar').scrollIntoView({behavior:'smooth',block:'center'});
+  // 視覺回饋
+  const msg=document.createElement('div');
+  msg.textContent=`✅ 已套用 ${SELECTED.length} 個單元到你的流程`;
+  msg.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--grad-cool);color:#04111e;padding:10px 18px;border-radius:10px;font-weight:600;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  document.body.appendChild(msg);
+  setTimeout(()=>msg.remove(),2500);
+}
+function applyAITrainAndSimulate(ids){
+  applyAITrain(ids);
+  setTimeout(()=>{ runSimulation(); },400);
+}
+
+function renderAIResults(d){
+  const dg=d.diagnosis||{};
+  let h=`<div class="diag-summary">${dg.summary||''}</div>`;
+  h+=`<div class="kpi-row">
+    <div class="kpi"><div class="lbl">結垢風險</div><div style="font-size:12.5px;color:var(--ink);margin-top:5px">${dg.scalingRisk||'—'}</div></div>
+    <div class="kpi"><div class="lbl">膜污染 / 積垢風險</div><div style="font-size:12.5px;color:var(--ink);margin-top:5px">${dg.foulingRisk||'—'}</div></div>
+    <div class="kpi"><div class="lbl">水源 / 產水量</div><div style="font-size:12.5px;color:var(--ink);margin-top:5px">${d._meta.source}<br>${d._meta.capacity||'—'} m³/h</div></div>
+    <div class="kpi"><div class="lbl">處理目標</div><div style="font-size:11.5px;color:var(--ink);margin-top:5px">${d._meta.goal||'—'}</div></div>
+  </div>`;
+  if((dg.keyParams||[]).length){
+    h+=`<table><tr><th>關鍵參數</th><th>數值</th><th>處理意義</th></tr>`;
+    dg.keyParams.forEach(p=>h+=`<tr><td><b>${p.name||''}</b></td><td>${p.value||''}</td><td>${p.note||''}</td></tr>`);
+    h+=`</table>`;
+  }
+  document.getElementById('diagBox').innerHTML=h;
+
+  let t='';
+  (d.trains||[]).forEach((tr,idx)=>{
+    const sx={high:'high',medium:'medium',low:'low'}[tr.suitability]||'medium';
+    // 推斷 unitIds：優先用 AI 給的，否則從 steps 名稱模糊比對
+    const ids = (tr.unitIds && tr.unitIds.length) ? tr.unitIds : matchStepsToUnitIds(tr.steps||[]);
+    const validIds = ids.filter(id=>UNITS.find(u=>u.id===id));
+    // 把 ID 存到 data-* 屬性
+    t+=`<div class="train-card ${tr.recommended?'rec':''}" data-ids='${JSON.stringify(validIds)}'>
+      <h3>${tr.recommended?'⭐ ':''}${tr.name||''} <span class="tag ${sx}">適配度 ${tr.suitability||''}</span></h3>
+      <div class="flow">${(tr.steps||[]).map((s,i)=>`${i?'<span class="arrow">→</span>':''}<span class="step">${s}</span>`).join('')}</div>
+      <div class="rationale">${tr.rationale||''}</div>
+      <div class="rationale" style="margin-top:6px"><b style="color:var(--cyan)">預估產水 TDS：</b>${tr.expectedProductTDS||'—'}　|　<b style="color:var(--cyan)">回收率：</b>${tr.expectedRecovery||'—'}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${validIds.length? `<button class="btn primary" style="padding:7px 14px;font-size:12.5px" onclick='applyAITrain(${JSON.stringify(validIds)})'>👉 套用此方案到我的流程（${validIds.length} 單元）</button>`:''}
+        ${validIds.length? `<button class="btn ghost" style="padding:7px 14px;font-size:12.5px" onclick='applyAITrainAndSimulate(${JSON.stringify(validIds)})'>⚡ 套用並立即模擬</button>`:''}
+      </div>
+    </div>`;
+  });
+  document.getElementById('trainBox').innerHTML=t;
+
+  let eq=`<table><tr><th>設備</th><th>規格 / 型式</th><th>數量</th><th>用途 / 選型理由</th></tr>`;
+  (d.equipment||[]).forEach(e=>eq+=`<tr><td><b>${e.name||''}</b></td><td>${e.spec||''}</td><td>${e.qty||''}</td><td>${e.note||''}</td></tr>`);
+  eq+=`</table>`;
+  document.getElementById('equipBox').innerHTML=eq;
+
+  const c=d.costs||{};
+  const cap=sumArr(c.capex), op=sumArr(c.opexAnnual), cons=sumArr(c.consumablesAnnual);
+  document.getElementById('costKpis').innerHTML=
+    `<div class="kpi"><div class="lbl">建置成本 CAPEX</div><div class="val">${fmt(cap)}</div><div class="unit">TWD（一次性）</div></div>
+     <div class="kpi"><div class="lbl">年維護 OPEX</div><div class="val">${fmt(op)}</div><div class="unit">TWD / 年</div></div>
+     <div class="kpi"><div class="lbl">年耗材</div><div class="val">${fmt(cons)}</div><div class="unit">TWD / 年</div></div>
+     <div class="kpi"><div class="lbl">首年總投入</div><div class="val">${fmt(cap+op+cons)}</div><div class="unit">TWD</div></div>`;
+  const tbl=(title,arr,extra)=>{
+    if(!(arr||[]).length) return '';
+    let s=`<h3 style="font-size:13px;color:var(--cyan);margin:16px 0 8px">${title}</h3><table><tr><th>項目</th>${extra?'<th>更換週期</th>':''}<th>金額 (TWD)</th><th>說明</th></tr>`;
+    arr.forEach(x=>s+=`<tr><td>${x.item||''}</td>${extra?`<td>${x.cycle||''}</td>`:''}<td class="num">${fmt(x.cost)}</td><td>${x.note||''}</td></tr>`);
+    s+=`<tr class="totalrow"><td>小計</td>${extra?'<td></td>':''}<td class="num">${fmt(sumArr(arr))}</td><td></td></tr></table>`;
+    return s;
+  };
+  document.getElementById('costTables').innerHTML=
+    tbl('建置成本 CAPEX',c.capex,false)+tbl('年維護 OPEX',c.opexAnnual,false)+tbl('年耗材',c.consumablesAnnual,true);
+  document.getElementById('costDisc').textContent='※ 以上為 AI 工程估算，僅供方案比較與初步預算用；實際需依現場條件、設備報價與水質實測校正。'+(d.notes?(' 補充：'+d.notes):'');
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+
+/* ===== Error helpers ===== */
+function showErr(m){const e=document.getElementById('errBox');e.textContent=m;e.style.display='block';setTimeout(()=>e.scrollIntoView({behavior:'smooth',block:'center'}),50);}
+function hideErr(){document.getElementById('errBox').style.display='none';}
+
+/* =========================================================================
+   ★ PPT 生成 ★
+   ========================================================================= */
+const TEAL_HEX="06D6A0", DARK_HEX="0A1628", ACCENT_HEX="22D3EE", SOFT_HEX="EEF6F8", MUTED_HEX="5B7077";
+function hd(t){return{text:String(t||''),options:{bold:true,color:'FFFFFF',fill:{color:TEAL_HEX}}};}
+function cell(t){return{text:String(t==null?'':t),options:{color:'1F2937'}};}
+function cellNum(t){return{text:fmt(t),options:{color:'1F2937',align:'right'}};}
+
+function makePPT(){
+  if(!DATA){showErr('請先執行 AI 深度分析。');return;}
+  if(typeof PptxGenJS==='undefined'){
+    showErr('PPT 函式庫未載入（可能網路無法連到 CDN）。請重新整理頁面後再試。');
+    return;
+  }
+  try { _doMakePPT(); }
+  catch(e){ showErr('生成 PPT 失敗：'+e.message); console.error(e); }
+}
+function _doMakePPT(){
+  const d=DATA, c=d.costs||{}, m=d._meta;
+  const p=new PptxGenJS();
+  p.defineLayout({name:'W',width:13.33,height:7.5}); p.layout='W';
+  const FONT='Microsoft JhengHei';
+  const W=13.33;
+  const head=(s,t)=>{
+    s.addShape(p.ShapeType.rect,{x:0,y:0,w:W,h:0.9,fill:{color:TEAL_HEX}});
+    s.addText(t,{x:0.5,y:0,w:12.3,h:0.9,fontFace:FONT,fontSize:22,bold:true,color:'FFFFFF',valign:'middle'});
+  };
+  // 封面
+  let s=p.addSlide();
+  s.background={color:DARK_HEX};
+  s.addText('💧',{x:0.5,y:1.6,w:2,h:1.5,fontSize:60});
+  s.addText(m.project,{x:0.5,y:3,w:12.3,h:1,fontFace:FONT,fontSize:34,bold:true,color:'FFFFFF'});
+  s.addText('水處理製程設計與技術經濟分析報告',{x:0.5,y:4.1,w:12.3,h:0.6,fontFace:FONT,fontSize:18,color:ACCENT_HEX});
+  s.addText(`設計產水量：${m.capacity||'—'} m³/h  |  水源：${m.source}  |  ${m.date}`,
+    {x:0.5,y:5,w:12.3,h:0.5,fontFace:FONT,fontSize:13,color:'AAB9BD'});
+  s.addText(`處理目標：${m.goal||'—'}`,{x:0.5,y:5.6,w:12.3,h:1,fontFace:FONT,fontSize:13,color:'AAB9BD'});
+
+  // 水質診斷
+  s=p.addSlide(); head(s,'水質診斷');
+  const dg=d.diagnosis||{};
+  s.addText(dg.summary||'',{x:0.5,y:1.1,w:12.3,h:0.9,fontFace:FONT,fontSize:14,fill:{color:SOFT_HEX},color:DARK_HEX,valign:'middle',margin:8});
+  s.addText([{text:'結垢風險  ',options:{bold:true,color:TEAL_HEX}},{text:dg.scalingRisk||'—',options:{color:DARK_HEX}}],
+    {x:0.5,y:2.2,w:6,h:1.4,fontFace:FONT,fontSize:12,valign:'top'});
+  s.addText([{text:'膜污染風險  ',options:{bold:true,color:TEAL_HEX}},{text:dg.foulingRisk||'—',options:{color:DARK_HEX}}],
+    {x:6.8,y:2.2,w:6,h:1.4,fontFace:FONT,fontSize:12,valign:'top'});
+  if((dg.keyParams||[]).length){
+    const rows=[[hd('關鍵參數'),hd('數值'),hd('處理意義')]];
+    dg.keyParams.slice(0,9).forEach(x=>rows.push([cell(x.name),cell(x.value),cell(x.note)]));
+    s.addTable(rows,{x:0.5,y:3.7,w:12.3,fontFace:FONT,fontSize:11,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[3,2.3,7]});
+  }
+
+  // 推薦製程
+  s=p.addSlide(); head(s,'推薦製程方案');
+  let y=1.2;
+  (d.trains||[]).slice(0,3).forEach(tr=>{
+    s.addText((tr.recommended?'⭐ ':'')+(tr.name||''),{x:0.5,y:y,w:9,h:0.4,fontFace:FONT,fontSize:15,bold:true,color:tr.recommended?TEAL_HEX:DARK_HEX});
+    s.addText(`適配度 ${tr.suitability||''}`,{x:10,y:y,w:2.8,h:0.4,fontFace:FONT,fontSize:11,align:'right',color:MUTED_HEX});
+    s.addText((tr.steps||[]).join('  →  '),{x:0.5,y:y+0.42,w:12.3,h:0.35,fontFace:FONT,fontSize:12,bold:true,color:ACCENT_HEX});
+    s.addText(`${tr.rationale||''}（產水 TDS：${tr.expectedProductTDS||'—'}，回收率：${tr.expectedRecovery||'—'}）`,
+      {x:0.5,y:y+0.78,w:12.3,h:0.7,fontFace:FONT,fontSize:11,color:DARK_HEX});
+    y+=1.85;
+  });
+
+  // 模擬結果（如果有）
+  if(SIM_RESULT){
+    s=p.addSlide(); head(s,'動力學模擬結果');
+    const last=SIM_RESULT.series[SIM_RESULT.series.length-1];
+    const inp=SIM_RESULT.series[0];
+    const flowTxt=SIM_RESULT.stages.map(x=>x.name).join(' → ');
+    s.addText('模擬流程：'+flowTxt,{x:0.5,y:1.1,w:12.3,h:0.5,fontFace:FONT,fontSize:13,bold:true,color:TEAL_HEX});
+    const rows=[[hd('指標'),hd('進水'),hd('出水'),hd('去除率')]];
+    ['BOD','COD','TSS','TDS','N','P'].forEach(k=>{
+      const rem=inp[k]?((inp[k]-last[k])/inp[k]*100).toFixed(1)+'%':'—';
+      rows.push([cell(k),cell((inp[k]||0).toFixed(1)+' mg/L'),cell((last[k]||0).toFixed(1)+' mg/L'),cell(rem)]);
+    });
+    s.addTable(rows,{x:0.5,y:1.8,w:7,fontFace:FONT,fontSize:11,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[1.6,1.8,1.8,1.8]});
+    s.addText([
+      {text:'總滯留時間\n',options:{bold:true,color:MUTED_HEX,fontSize:10}},
+      {text:`${SIM_RESULT.totalRT.toFixed(2)} 小時\n\n`,options:{color:TEAL_HEX,fontSize:24,bold:true}},
+      {text:'總能耗\n',options:{bold:true,color:MUTED_HEX,fontSize:10}},
+      {text:`${SIM_RESULT.totalE.toFixed(2)} kWh/m³`,options:{color:TEAL_HEX,fontSize:24,bold:true}},
+    ],{x:8,y:1.8,w:5,h:4,fontFace:FONT,valign:'top',fill:{color:SOFT_HEX},margin:14});
+  }
+
+  // 設備清單
+  s=p.addSlide(); head(s,'建議設備清單');
+  const er=[[hd('設備'),hd('規格/型式'),hd('數量'),hd('用途/選型理由')]];
+  (d.equipment||[]).slice(0,11).forEach(e=>er.push([cell(e.name),cell(e.spec),cell(e.qty),cell(e.note)]));
+  s.addTable(er,{x:0.5,y:1.1,w:12.3,fontFace:FONT,fontSize:10.5,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[2.6,3.2,1,5.5],valign:'top'});
+
+  // 成本總覽
+  s=p.addSlide(); head(s,'成本分析總覽');
+  const cap=sumArr(c.capex),op=sumArr(c.opexAnnual),co=sumArr(c.consumablesAnnual);
+  const card=(x,lbl,val,unit)=>{
+    s.addShape(p.ShapeType.roundRect,{x:x,y:1.3,w:3.9,h:2,fill:{color:SOFT_HEX},line:{color:'DDE7E9',pt:1},rectRadius:0.1});
+    s.addText(lbl,{x:x,y:1.5,w:3.9,h:0.4,fontFace:FONT,fontSize:13,color:MUTED_HEX,align:'center'});
+    s.addText(fmt(val),{x:x,y:1.95,w:3.9,h:0.7,fontFace:FONT,fontSize:28,bold:true,color:TEAL_HEX,align:'center'});
+    s.addText(unit,{x:x,y:2.7,w:3.9,h:0.4,fontFace:FONT,fontSize:11,color:MUTED_HEX,align:'center'});
+  };
+  card(0.5,'建置成本 CAPEX',cap,'TWD（一次性）');
+  card(4.7,'年維護成本 OPEX',op,'TWD / 年');
+  card(8.9,'年耗材成本',co,'TWD / 年');
+  s.addText(`首年總投入估算：約 ${fmt(cap+op+co)} TWD  |  每年營運：約 ${fmt(op+co)} TWD`,
+    {x:0.5,y:3.6,w:12.3,h:0.5,fontFace:FONT,fontSize:13,bold:true,color:DARK_HEX});
+  s.addText('※ AI 工程估算，需以實際報價與水質實測校正。',{x:0.5,y:6.6,w:12.3,h:0.4,fontFace:FONT,fontSize:10,italic:true,color:MUTED_HEX});
+
+  // 成本明細
+  const costTbl=(arr,extra)=>{
+    const r=[[hd('項目'),...(extra?[hd('週期')]:[]),hd('金額 TWD'),hd('說明')]];
+    (arr||[]).forEach(x=>r.push([cell(x.item),...(extra?[cell(x.cycle)]:[]),cellNum(x.cost),cell(x.note)]));
+    return r;
+  };
+  s=p.addSlide(); head(s,'成本明細');
+  s.addText('建置 CAPEX',{x:0.5,y:1.05,w:6,h:0.3,fontFace:FONT,fontSize:12,bold:true,color:TEAL_HEX});
+  s.addTable(costTbl(c.capex,false),{x:0.5,y:1.4,w:12.3,fontFace:FONT,fontSize:9.5,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[3,2,7.3]});
+  s=p.addSlide(); head(s,'成本明細（維護與耗材）');
+  s.addText('年維護 OPEX',{x:0.5,y:1.05,w:6,h:0.3,fontFace:FONT,fontSize:12,bold:true,color:TEAL_HEX});
+  s.addTable(costTbl(c.opexAnnual,false),{x:0.5,y:1.4,w:12.3,fontFace:FONT,fontSize:9.5,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[3,2,7.3]});
+  s.addText('年耗材',{x:0.5,y:4.3,w:6,h:0.3,fontFace:FONT,fontSize:12,bold:true,color:TEAL_HEX});
+  s.addTable(costTbl(c.consumablesAnnual,true),{x:0.5,y:4.65,w:12.3,fontFace:FONT,fontSize:9.5,border:{type:'solid',color:'DDE7E9',pt:0.5},colW:[2.6,1.8,1.6,6.3]});
+
+  // 結語
+  s=p.addSlide(); head(s,'結論與後續建議');
+  s.addText(d.notes||'建議現場取樣與小型試運轉，校正薄膜通量、回收率與藥劑用量等關鍵參數後再進行細部設計與設備詢價。',
+    {x:0.5,y:1.3,w:12.3,h:4,fontFace:FONT,fontSize:14,color:DARK_HEX,valign:'top',fill:{color:SOFT_HEX},margin:12});
+  s.addText('本報告由「水處理製程模擬器 WaterSim Pro V2」自動生成  ·  '+m.date,
+    {x:0.5,y:6.7,w:12.3,h:0.4,fontFace:FONT,fontSize:10,color:MUTED_HEX});
+
+  // 清理檔名：移除 / \ : * ? " < > | 等檔系不允許的字元
+  const safeName=(m.project||'水處理製程設計').replace(/[\/\\:*?"<>|]/g,'-')
+                + '_' + m.date.replace(/[\/\\:]/g,'-') + '.pptx';
+  p.writeFile({fileName:safeName}).then(fn=>{
+    console.log('[PPT] 已產生',fn);
+  }).catch(err=>{
+    showErr('PPT 寫檔失敗：'+err.message+'　（請改用 Chrome / Edge 試試）');
+    console.error(err);
+  });
+}
+
+/* =========================================================================
+   ★ AI 對話顧問 ★ — 多輪對話、自動帶入水質與流程上下文
+   ========================================================================= */
+let CHAT_HISTORY=[];
+
+/* 聊天輸入鍵盤處理：Ctrl/Cmd+Enter 送出；避免中文 IME 組字時誤觸 */
+function handleChatKeydown(e){
+  if(e.key!=='Enter') return;
+  // IME 組字中（中日韓選字）→ 完全不處理，讓輸入法接管
+  if(e.isComposing || e.keyCode===229) return;
+  // Ctrl/Cmd + Enter → 送出
+  if(e.ctrlKey || e.metaKey){
+    e.preventDefault();
+    sendChat();
+  }
+  // 純 Enter → 預設行為（換行）
+}
+
+function toggleChat(){
+  const p=document.getElementById('chatPanel');
+  p.classList.toggle('open');
+  if(p.classList.contains('open') && CHAT_HISTORY.length===0){ renderChatWelcome(); }
+}
+function renderChatWelcome(){
+  document.getElementById('chatMessages').innerHTML=
+    `<div class="chat-empty"><div class="big">👋</div>
+     <b style="color:var(--ink)">我是你的水處理顧問助手</b><br><br>
+     我會即時參考你目前在頁面填的 <b style="color:var(--cyan)">水質報告</b>、<b style="color:var(--cyan)">處理目標</b>、<b style="color:var(--cyan)">選的流程</b> 與 <b style="color:var(--cyan)">模擬結果</b>，給你工程建議。<br><br>
+     直接輸入問題，或點下方快速問題 👇</div>`;
+}
+function clearChat(){ CHAT_HISTORY=[]; renderChatWelcome(); }
+function quickAsk(q){
+  document.getElementById('chatInput').value=q;
+  sendChat();
+}
+
+function escapeHtml(s){const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML;}
+function renderMarkdown(text){
+  let h=escapeHtml(text);
+  // headers
+  h=h.replace(/^#### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // bold, italic, code
+  h=h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'<em>$1</em>');
+  h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  // lists
+  h=h.replace(/^(?:- |\* )(.+)$/gm,'<li>$1</li>');
+  h=h.replace(/(?:<li>.*<\/li>(?:\n|$))+/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
+  h=h.replace(/^(\d+)\. (.+)$/gm,'<li data-n="$1">$2</li>');
+  // line breaks
+  h=h.replace(/\n\n/g,'<br><br>');
+  h=h.replace(/\n/g,'<br>');
+  return h;
+}
+function renderChatMessages(){
+  const c=document.getElementById('chatMessages');
+  c.innerHTML=CHAT_HISTORY.map(m=>
+    `<div class="chat-msg ${m.role==='user'?'user':'ai'}">${m.role==='user'?escapeHtml(m.content).replace(/\n/g,'<br>'):renderMarkdown(m.content)}</div>`
+  ).join('');
+  c.scrollTop=c.scrollHeight;
+}
+function addChatMsg(role,content){ CHAT_HISTORY.push({role,content}); renderChatMessages(); }
+
+function buildChatSystem(){
+  const report=document.getElementById('report').value.trim();
+  const goal=document.getElementById('goal').value.trim();
+  const source=document.getElementById('source').value;
+  const capacity=document.getElementById('capacity').value;
+  const priority=document.getElementById('priority').value;
+  const train=SELECTED.map(id=>UNITS.find(u=>u.id===id)?.name).filter(Boolean).join(' → ');
+
+  let s=`你是資深水處理製程工程師，專精 RO、UF、MBR、CAS、A2O、CDI、MVR 等與技術經濟分析。
+用繁體中文簡明專業地回答；可用 markdown 排版（# 標題、**粗體**、- 列點），但避免太長，回答聚焦在使用者問的點。
+回答時主動引用使用者目前的水質參數與選的流程做具體分析；如果使用者沒選流程或沒填報告，就建議他補完。\n`;
+
+  s+=`\n[目前案場資訊]`;
+  if(source) s+=`\n· 水源：${source}`;
+  if(capacity) s+=`\n· 設計產水量：${capacity} m³/h`;
+  if(priority) s+=`\n· 目標導向：${priority}`;
+  if(goal) s+=`\n· 處理目標：${goal}`;
+  if(report) s+=`\n\n[檢測報告]\n${report.slice(0,1800)}`;
+  if(train) s+=`\n\n[使用者目前選的處理流程]\n${train}`;
+  if(SIM_RESULT){
+    const last=SIM_RESULT.series[SIM_RESULT.series.length-1];
+    const inp=SIM_RESULT.series[0];
+    s+=`\n\n[動力學模擬結果]`;
+    s+=`\n· 進水 → 出水：BOD ${inp.BOD?.toFixed(0)}→${last.BOD?.toFixed(1)}, COD ${inp.COD?.toFixed(0)}→${last.COD?.toFixed(1)}, TDS ${inp.TDS?.toFixed(0)}→${last.TDS?.toFixed(0)}, TSS ${inp.TSS?.toFixed(0)}→${last.TSS?.toFixed(1)} mg/L`;
+    s+=`\n· 總滯留時間：${SIM_RESULT.totalRT.toFixed(2)} h，總能耗：${SIM_RESULT.totalE.toFixed(2)} kWh/m³`;
+    s+=`\n· 估算 CAPEX：${(SIM_RESULT.capex/1e6).toFixed(2)}M TWD，年 OPEX：${((SIM_RESULT.opex+SIM_RESULT.energyCostYr)/1e6).toFixed(2)}M TWD`;
+  }
+  return s;
+}
+
+async function sendChat(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text) return;
+  if(!hasKey()){
+    addChatMsg('ai','⚠️ 請先點右上 ⚙️ 設定 AI Key（推薦 Google Gemini 免費 1500 次/天）才能對話。');
+    return;
+  }
+  input.value=''; input.disabled=true;
+  document.getElementById('chatSendBtn').disabled=true;
+  addChatMsg('user',text);
+
+  // 加 typing indicator
+  const cm=document.getElementById('chatMessages');
+  const typ=document.createElement('div');
+  typ.className='chat-msg ai'; typ.id='typingInd';
+  typ.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';
+  cm.appendChild(typ); cm.scrollTop=cm.scrollHeight;
+
+  try {
+    const reply=await callChatAI();
+    document.getElementById('typingInd')?.remove();
+    addChatMsg('ai',reply);
+  } catch(err){
+    document.getElementById('typingInd')?.remove();
+    addChatMsg('ai','❌ 失敗：'+err.message+'\n\n請檢查 API Key 是否正確、或換一個提供商試試。');
+  } finally {
+    input.disabled=false; document.getElementById('chatSendBtn').disabled=false;
+    input.focus();
+  }
+}
+
+async function callChatAI(){
+  const system=buildChatSystem();
+  if(PROVIDER==='anthropic'){
+    const r=await fetchWithRetry('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':effectiveKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:2500,system,
+        messages:CHAT_HISTORY.map(m=>({role:m.role==='ai'?'assistant':'user',content:m.content}))})},'Anthropic');
+    const j=await r.json();
+    return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  }
+  if(PROVIDER==='gemini'){
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(effectiveKey())}`;
+    const contents=CHAT_HISTORY.map(m=>({role:m.role==='ai'?'model':'user',parts:[{text:m.content}]}));
+    const r=await fetchWithRetry(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+      systemInstruction:{parts:[{text:system}]},
+      contents,
+      generationConfig:{maxOutputTokens:2500,temperature:0.7}
+    })},'Gemini');
+    const j=await r.json();
+    return j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+  }
+  const endpoints={groq:'https://api.groq.com/openai/v1/chat/completions',openrouter:'https://openrouter.ai/api/v1/chat/completions'};
+  const headers={'content-type':'application/json','Authorization':'Bearer '+effectiveKey()};
+  if(PROVIDER==='openrouter'){headers['HTTP-Referer']='https://watersim.local';headers['X-Title']='WaterSim Pro';}
+  const r=await fetchWithRetry(endpoints[PROVIDER],{method:'POST',headers,body:JSON.stringify({
+    model:MODEL,max_tokens:2500,temperature:0.7,
+    messages:[{role:'system',content:system},...CHAT_HISTORY.map(m=>({role:m.role==='ai'?'assistant':'user',content:m.content}))]
+  })},PROVIDER);
+  const j=await r.json();
+  return j.choices?.[0]?.message?.content||'';
+}
+
+/* ===== 啟動 ===== */
+window.addEventListener('DOMContentLoaded',()=>{
+  renderCatTabs(); renderMethods(); renderTrain(); renderGoalPresets(); updateApiStatus();
+  // admin 才看到試用碼產生器
+  if(!currentRole().startsWith('trial:')){
+    const tb=document.getElementById('trialBtn'); if(tb) tb.style.display='';
+  }
+  // 第一次使用提示輸入 API Key
+  if(!hasKey()){
+    setTimeout(()=>{
+      if(!localStorage.getItem('watersim_seen_settings')){
+        openSettings();
+        localStorage.setItem('watersim_seen_settings','1');
+      }
+    },800);
+  }
+});
+</script>
+</body>
+</html>
