@@ -302,6 +302,9 @@ tr.totalrow td{font-weight:700;background:rgba(6,214,160,.06);color:var(--teal)}
     <span class="status-dot"><span class="dot" id="apiDot"></span><span id="apiStatus">尚未設定 API</span></span>
     <select id="quickProviderSel" onchange="onQuickProviderChange()" title="快速切換 AI 提供商" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);font-size:11.5px;padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit"></select>
     <select id="quickModelSel" onchange="onQuickModelChange()" title="快速切換模型" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);font-size:11.5px;padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit;max-width:220px"></select>
+    <button class="iconbtn" title="存檔（瀏覽器）" onclick="saveProject()">💾</button>
+    <button class="iconbtn" title="載入" onclick="loadProject()">📂</button>
+    <button class="iconbtn" title="分享連結" onclick="shareLink()">🔗</button>
     <button class="iconbtn" id="trialBtn" title="產生試用碼（管理員）" onclick="openTrialGen()" style="display:none">🎫</button>
     <button class="iconbtn" title="設定" onclick="openSettings()">⚙️</button>
     <button class="iconbtn" title="登出" onclick="logout()">🚪</button>
@@ -1212,6 +1215,50 @@ const DESIGN = {
   },
 };
 
+/* =========================================================================
+   ★ 補充資料：水回收率 + 儀控清單 + 碳排放係數 ★
+   ========================================================================= */
+const UNIT_EXTRA = {
+  // recovery: 出水/進水 比（剩下變污泥或濃水）
+  screen:    {recovery:0.999, ic:['進水流量計 FT','液位計 LT（攔污閘前）']},
+  grit:      {recovery:0.998, ic:['進水流量計 FT','砂斗液位計']},
+  eq:        {recovery:0.997, ic:['液位計 LT (4-20mA)','潛水攪拌器啟停 + 電流監測','進/出水流量計 FT','溫度計 TT']},
+  neutral:   {recovery:0.998, ic:['pH 計 (2 點)','投藥泵頻率控制 PID','液位計','防溢警報']},
+  coag:      {recovery:0.996, ic:['投藥泵流量控制 (PAC/PAM)','混合槽攪拌器 VFD','進水流量計 FT (配比)','pH 計','濁度計 (進/出)']},
+  sed:       {recovery:0.95,  ic:['污泥液位計 (超音波)','刮泥機運轉狀態','污泥排放閥 + 計時','出水濁度計 NT']},
+  daf:       {recovery:0.93,  ic:['飽和器壓力計 PT','回流泵 VFD','空氣壓縮機運轉','浮渣刮取機','液位計','溶氧 DO']},
+  sand:      {recovery:0.97,  ic:['壓差計 ΔP (反洗觸發)','流量計 FT','反洗閥組 (自動)','液位計']},
+  chemox:    {recovery:0.998, ic:['ORP 計','投藥泵 (NaOCl/ClO2)','餘氯計 (出水)','流量計']},
+  cas:       {recovery:0.97,  ic:['溶氧 DO 計 (多點)','MLSS 計','氧化還原電位 ORP','空氣流量計 + 控制閥','迴流泵 VFD','液位計','溫度計']},
+  a2o:       {recovery:0.97,  ic:['DO 計 (好氧池)','ORP 計 (厭氧/缺氧)','NH3-N/NO3 分析儀','磷酸鹽分析儀','MLSS 計','內循環泵 VFD','污泥迴流泵 VFD']},
+  sbr:       {recovery:0.95,  ic:['DO 計','液位計 (週期控制)','潷水器位置','時序控制器 PLC','MLSS 計 (選配)']},
+  mbr:       {recovery:0.97,  ic:['膜壓差 TMP 計','膜面曝氣流量計','產水流量計 + VFD','MLSS / 污泥黏度計','CIP 系統壓力/流量']},
+  mbbr:      {recovery:0.97,  ic:['DO 計 (高溶氧)','溫度計','生物載體攔截網壓差','迴流泵']},
+  uasb:      {recovery:0.96,  ic:['沼氣流量計','溫度計 (30-37°C 控制)','pH 計','鹼度自動投藥','污泥床高度計','GLS 三相分離器液位']},
+  mf:        {recovery:0.93,  ic:['TMP 壓差計','產水流量計 FT','濁度計 (出水)','反洗閥組 自動','CEB 投藥泵']},
+  uf:        {recovery:0.92,  ic:['TMP 壓差計','產水通量 FT','濁度 + SDI 計','反洗閥組 PLC','CEB / CIP 系統','溫度計 (通量修正)']},
+  nf:        {recovery:0.85,  ic:['進/產/濃 流量計 (3 個)','進水壓力 PT','膜壓差','電導率計 (進/產/濃)','溫度計','抗結垢劑投藥泵']},
+  ro:        {recovery:0.75,  ic:['進/產/濃 流量計 FT (3 個)','HP 高壓泵 VFD','LP 低壓泵','膜進/出壓力 PT (4 點)','電導率計 (進/產)','SDI / 餘氯計 (進水)','溫度計 TT','pH 計','抗結垢劑 + SBS 投藥泵','CIP 系統']},
+  gac:       {recovery:0.98,  ic:['進/出流量計','壓差計 (壓損)','濾床溫度計','BOD/TOC 分析儀 (選配)']},
+  iex:       {recovery:0.95,  ic:['硬度計 / 電導率','流量計累積','再生鹽液位','差壓計','液位計']},
+  ozone:     {recovery:0.998, ic:['臭氧產生器運轉','臭氧濃度計 (進氣/排氣)','ORP 計','尾氧分解器溫度','流量計']},
+  uv:        {recovery:0.999, ic:['UV 強度計 UVT','燈管運轉時數','流量計 (連鎖)','溫度計 (套管)']},
+  aop:       {recovery:0.997, ic:['H₂O₂ 殘留分析儀','臭氧濃度計','UV 強度','投藥泵 (H2O2/Fe)','溫度 + pH 計']},
+  cdi:       {recovery:0.85,  ic:['電壓/電流計','電導率 (進/出)','流量計','切換閥組','溫度計']},
+  edi:       {recovery:0.92,  ic:['電阻率計 18MΩ 級','電壓/電流計','流量計 (產品/排水)','溫度計','進水 TDS / TOC 監測']},
+  mvr:       {recovery:0.95,  ic:['蒸氣壓縮機振動/溫度','液位計 (蒸發槽)','溫度計 (多點)','真空度計','濃縮液密度計','CIP 流量']},
+  cryst:     {recovery:0.99,  ic:['結晶器液位','溫度計','晶漿密度','離心機運轉','母液回流流量']},
+};
+function unitRecovery(id){return UNIT_EXTRA[id]?.recovery??1.0;}
+function unitIC(id){return UNIT_EXTRA[id]?.ic||[];}
+
+/* 碳排係數 */
+const CARBON = {
+  GRID_KGCO2_PER_KWH: 0.494,  // 台電 2023 電力排碳係數
+  // 主要藥劑 kgCO2 / kg 藥劑
+  CHEM_KGCO2_PER_KG: {PAC:1.5, NaOH:1.1, FeCl3:0.8, PAM:4.0, NaOCl:1.4, H2SO4:0.6, HCl:0.7, Antiscalant:5.0, SBS:1.6, CaOH2:0.9},
+};
+
 const CATS=['全部','前處理','物化','生物','薄膜','高級','濃縮'];
 let currentCat='全部';
 let SELECTED=[];   // 已選 unit id 陣列（依序）
@@ -1875,6 +1922,15 @@ async function runSimulation(){
   drawFlowSvg(stages, 0);
   renderSimKpis(SIM_RESULT, series);
   renderTrainDesignSummary();
+  // 質量平衡 + Sankey
+  SIM_RESULT.massBalance=computeMassBalance(SELECTED, cap);
+  // 碳足跡
+  SIM_RESULT.carbon=computeCarbonFootprint(SIM_RESULT);
+  // 儀控
+  SIM_RESULT.icList=aggregateIC(SELECTED);
+  renderMassBalanceSankey();
+  renderCarbonFootprint();
+  renderICList();
 
   // 動畫：階段一個一個逐步點亮，並更新圖表
   document.getElementById('simBtn').disabled=true;
@@ -1908,6 +1964,91 @@ async function runSimulation(){
     }
   };
   requestAnimationFrame(tick);
+}
+
+/* =========================================================================
+   ★ 質量平衡 + Sankey 圖 ★
+   ========================================================================= */
+function computeMassBalance(unitIds, feedFlow){
+  // 算每階段水量 + 排出量
+  let q=feedFlow;
+  const stages=[{name:'進水', flowIn:feedFlow, flowOut:feedFlow, reject:0, recovery:1.0}];
+  unitIds.forEach(id=>{
+    const u=UNITS.find(x=>x.id===id);
+    const r=unitRecovery(id);
+    const out=q*r;
+    stages.push({name:u?.abbr||id, fullName:u?.name||id, flowIn:q, flowOut:out, reject:q-out, recovery:r});
+    q=out;
+  });
+  const totalRecovery=q/feedFlow;
+  return {stages, productFlow:q, totalReject:feedFlow-q, totalRecovery};
+}
+
+function renderSankey(mb){
+  // 簡化 Sankey：橫向流動圖，每階段方框高度 = 流量比例
+  const n=mb.stages.length;
+  const W=1140, H=240;
+  const maxFlow=mb.stages[0].flowIn;
+  const padX=20, dx=(W-padX*2)/(n-1);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;background:linear-gradient(180deg,#050a14,#0a1628);border-radius:12px">
+    <defs>
+      <linearGradient id="sankeyMain" x1="0" x2="1"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06d6a0"/></linearGradient>
+      <linearGradient id="sankeyReject" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fb7185"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient>
+    </defs>`;
+  // 中線 + 流動帶
+  for(let i=0;i<n-1;i++){
+    const x1=padX+i*dx+45, x2=padX+(i+1)*dx-45;
+    const h1=(mb.stages[i].flowOut/maxFlow)*80;
+    const h2=(mb.stages[i+1].flowOut/maxFlow)*80;
+    const yMid=H/2;
+    svg+=`<path d="M${x1} ${yMid-h1/2} L${x2} ${yMid-h2/2} L${x2} ${yMid+h2/2} L${x1} ${yMid+h1/2} Z" fill="url(#sankeyMain)" opacity="0.45"/>`;
+    // 排出（污泥/濃水）— 從這階段往下噴
+    if(mb.stages[i+1].reject>0.01){
+      const rH=(mb.stages[i+1].reject/maxFlow)*60;
+      svg+=`<path d="M${x2} ${yMid+h2/2} L${x2+25} ${yMid+h2/2+rH+10} L${x2-5} ${yMid+h2/2+rH+10} Z" fill="url(#sankeyReject)" opacity="0.6"/>`;
+      svg+=`<text x="${x2+10}" y="${yMid+h2/2+rH+22}" fill="#fb7185" font-size="9">${mb.stages[i+1].reject.toFixed(1)}</text>`;
+    }
+  }
+  // 階段方塊
+  mb.stages.forEach((s,i)=>{
+    const cx=padX+i*dx;
+    const h=Math.max(20,(s.flowOut/maxFlow)*80);
+    const isFirst=i===0, isLast=i===n-1;
+    const col=isFirst?'#22d3ee':(isLast?'#06d6a0':'#60a5fa');
+    svg+=`<rect x="${cx-22}" y="${H/2-h/2}" width="44" height="${h}" rx="6" fill="${col}" opacity="0.85" stroke="#fff" stroke-opacity="0.2"/>`;
+    svg+=`<text x="${cx}" y="${H/2-h/2-8}" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">${s.name}</text>`;
+    svg+=`<text x="${cx}" y="${H/2+h/2+14}" text-anchor="middle" fill="#7a92b8" font-size="10">${s.flowOut.toFixed(1)} m³/h</text>`;
+    svg+=`<text x="${cx}" y="${H/2+h/2+26}" text-anchor="middle" fill="#5b7077" font-size="9">${(s.flowOut/maxFlow*100).toFixed(0)}%</text>`;
+  });
+  // 圖例
+  svg+=`<g transform="translate(20, 10)">
+    <rect x="0" y="0" width="14" height="10" fill="url(#sankeyMain)" opacity="0.7"/>
+    <text x="20" y="9" fill="#7a92b8" font-size="11">產水流</text>
+    <rect x="80" y="0" width="14" height="10" fill="url(#sankeyReject)" opacity="0.7"/>
+    <text x="100" y="9" fill="#7a92b8" font-size="11">污泥/濃水</text>
+  </g>`;
+  svg+=`</svg>`;
+  return svg;
+}
+
+/* 碳足跡計算 */
+function computeCarbonFootprint(simResult){
+  const energy=simResult.totalE;  // kWh/m³
+  const energyCO2=energy*CARBON.GRID_KGCO2_PER_KWH;
+  // 藥劑估算（粗估，需要實際投藥量）
+  const chemicalCO2_est=energyCO2*0.15;  // 經驗：藥劑約佔總碳排 10-20%
+  return {energy, energyCO2, chemicalCO2_est, totalCO2:energyCO2+chemicalCO2_est};
+}
+
+/* 儀控清單彙整 */
+function aggregateIC(unitIds){
+  const list=[];
+  unitIds.forEach(id=>{
+    const u=UNITS.find(x=>x.id===id);
+    const ic=unitIC(id);
+    if(ic.length) list.push({unit:u?.name||id, items:ic});
+  });
+  return list;
 }
 
 function renderTrainDesignSummary(){
@@ -1944,6 +2085,52 @@ function renderTrainDesignSummary(){
     <h4>🔧 設計參數總覽（${designRows.length} 項）</h4>
     <table style="font-size:11.5px"><tr><th>單元</th><th>參數</th><th>典型值</th></tr>`;
   designRows.forEach(r=>h+=`<tr><td><b style="color:var(--cyan)">${r.unit}</b></td><td>${r.key}</td><td>${r.value}</td></tr>`);
+  h+=`</table></div>`;
+  box.innerHTML=h;
+}
+
+function renderMassBalanceSankey(){
+  let box=document.getElementById('mbBox');
+  if(!box){box=document.createElement('div');box.id='mbBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const mb=SIM_RESULT.massBalance;
+  let h=`<div class="chart-card" style="margin-top:0">
+    <h4>💧 質量/水量平衡（Sankey）</h4>
+    <div style="margin-bottom:10px">${renderSankey(mb)}</div>
+    <table style="font-size:11.5px">
+      <tr><th>階段</th><th>進水</th><th>出水</th><th>排出（污泥/濃水）</th><th>本階段回收率</th></tr>
+      ${mb.stages.map(s=>`<tr><td><b>${s.fullName||s.name}</b></td><td>${s.flowIn.toFixed(2)} m³/h</td><td style="color:var(--teal)">${s.flowOut.toFixed(2)} m³/h</td><td style="color:var(--rose)">${s.reject.toFixed(2)} m³/h</td><td>${(s.recovery*100).toFixed(1)}%</td></tr>`).join('')}
+      <tr class="totalrow"><td colspan="4">總回收率（產水/進水）</td><td style="color:var(--teal)">${(mb.totalRecovery*100).toFixed(1)}%</td></tr>
+    </table>
+  </div>`;
+  box.innerHTML=h;
+}
+
+function renderCarbonFootprint(){
+  let box=document.getElementById('carbonBox');
+  if(!box){box=document.createElement('div');box.id='carbonBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const c=SIM_RESULT.carbon, cap=SIM_RESULT.cap;
+  const yearTotal=c.totalCO2*cap*24*365/1000; // tonnes/yr
+  box.innerHTML=`<div class="chart-card" style="margin-top:0">
+    <h4>🌱 碳足跡（CO₂ 排放）</h4>
+    <div class="kpi-row" style="margin:6px 0">
+      <div class="kpi"><div class="lbl">能耗碳排</div><div class="val">${c.energyCO2.toFixed(3)}</div><div class="unit">kg CO₂ / m³</div></div>
+      <div class="kpi"><div class="lbl">藥劑碳排（估）</div><div class="val">${c.chemicalCO2_est.toFixed(3)}</div><div class="unit">kg CO₂ / m³</div></div>
+      <div class="kpi"><div class="lbl">總碳排</div><div class="val">${c.totalCO2.toFixed(3)}</div><div class="unit">kg CO₂ / m³</div></div>
+      <div class="kpi"><div class="lbl">年總排放</div><div class="val">${yearTotal.toFixed(1)}</div><div class="unit">tCO₂ / 年</div></div>
+    </div>
+    <div class="disc">電網係數：${CARBON.GRID_KGCO2_PER_KWH} kgCO₂/kWh（台電 2023）。藥劑為粗估，依實際投藥量校正。</div>
+  </div>`;
+}
+
+function renderICList(){
+  let box=document.getElementById('icBox');
+  if(!box){box=document.createElement('div');box.id='icBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const list=SIM_RESULT.icList;
+  const total=list.reduce((a,b)=>a+b.items.length,0);
+  let h=`<div class="chart-card" style="margin-top:0">
+    <h4>🎛️ 儀控清單 I&C（${total} 個儀表/控制點）</h4>
+    <table style="font-size:11.5px"><tr><th>單元</th><th>感測器 / 控制器</th></tr>`;
+  list.forEach(g=>h+=`<tr><td><b style="color:var(--cyan)">${g.unit}</b></td><td>${g.items.map(i=>`<span style="display:inline-block;background:rgba(34,211,238,.1);color:var(--cyan);padding:2px 7px;border-radius:6px;font-size:11px;margin:2px 3px 2px 0">${i}</span>`).join('')}</td></tr>`);
   h+=`</table></div>`;
   box.innerHTML=h;
 }
@@ -2627,13 +2814,116 @@ async function callChatAI(){
   return j.choices?.[0]?.message?.content||'';
 }
 
+/* =========================================================================
+   ★ 專案存檔 / 載入 / 分享連結 ★
+   ========================================================================= */
+function collectProjectState(){
+  return {
+    v:2,
+    report:document.getElementById('report').value,
+    goal:document.getElementById('goal').value,
+    source:document.getElementById('source').value,
+    priority:document.getElementById('priority').value,
+    capacity:document.getElementById('capacity').value,
+    project:document.getElementById('project').value,
+    selected:SELECTED.slice(),
+    savedAt:new Date().toISOString(),
+  };
+}
+function applyProjectState(s){
+  if(!s) return;
+  if(s.report!==undefined) document.getElementById('report').value=s.report;
+  if(s.goal!==undefined) document.getElementById('goal').value=s.goal;
+  if(s.source!==undefined) document.getElementById('source').value=s.source;
+  if(s.priority!==undefined) document.getElementById('priority').value=s.priority;
+  if(s.capacity!==undefined) document.getElementById('capacity').value=s.capacity;
+  if(s.project!==undefined) document.getElementById('project').value=s.project;
+  if(Array.isArray(s.selected)){ SELECTED=s.selected.filter(id=>UNITS.find(u=>u.id===id)); renderMethods(); renderTrain(); }
+}
+
+const LS_PROJECTS='watersim_projects';
+
+function saveProject(){
+  const name=prompt('請輸入專案名稱（會存在你的瀏覽器，下次可載入）：',
+    document.getElementById('project').value || ('專案_'+new Date().toLocaleDateString('zh-TW')));
+  if(!name) return;
+  const all=JSON.parse(localStorage.getItem(LS_PROJECTS)||'{}');
+  all[name]=collectProjectState();
+  localStorage.setItem(LS_PROJECTS,JSON.stringify(all));
+  alert(`✅ 已儲存「${name}」\n\n目前共有 ${Object.keys(all).length} 個專案。`);
+}
+function loadProject(){
+  const all=JSON.parse(localStorage.getItem(LS_PROJECTS)||'{}');
+  const names=Object.keys(all);
+  if(!names.length){ alert('沒有已儲存的專案'); return; }
+  const list=names.map((n,i)=>{
+    const s=all[n];
+    const d=s.savedAt?new Date(s.savedAt).toLocaleString('zh-TW'):'';
+    return `${i+1}. ${n}  (${d})`;
+  }).join('\n');
+  const ch=prompt(`已儲存專案：\n${list}\n\n輸入編號（1-${names.length}）載入，或輸入 d+編號刪除（例 d2）：`);
+  if(!ch) return;
+  if(ch.startsWith('d')){
+    const idx=parseInt(ch.slice(1),10)-1;
+    if(names[idx]){delete all[names[idx]]; localStorage.setItem(LS_PROJECTS,JSON.stringify(all)); alert(`已刪除「${names[idx]}」`);}
+    return;
+  }
+  const idx=parseInt(ch,10)-1;
+  if(!names[idx]){ alert('無效編號'); return; }
+  applyProjectState(all[names[idx]]);
+  alert(`✅ 已載入「${names[idx]}」`);
+}
+function saveToFile(){
+  const data=collectProjectState();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=(data.project||'watersim_project')+'.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function loadFromFile(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{try{applyProjectState(JSON.parse(r.result));alert('✅ 載入完成');}catch(err){alert('檔案格式錯誤：'+err.message);}};
+    r.readAsText(f);
+  };
+  inp.click();
+}
+function shareLink(){
+  const data=collectProjectState();
+  const b64=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const url=`${location.origin}${location.pathname}#p=${b64}`;
+  navigator.clipboard.writeText(url).then(()=>{
+    alert(`🔗 分享連結已複製！\n\n別人開這個連結會自動載入你的設定（包含水質報告、選的流程、目標）。\n\n網址長度：${url.length} 字元`);
+  }).catch(()=>{
+    prompt('複製這個連結分享：',url);
+  });
+}
+function loadFromHash(){
+  if(!location.hash.startsWith('#p=')) return;
+  try {
+    const b64=location.hash.slice(3);
+    const json=decodeURIComponent(escape(atob(b64)));
+    const data=JSON.parse(json);
+    applyProjectState(data);
+    // 清掉 hash 避免重複
+    history.replaceState(null,'',location.pathname);
+    setTimeout(()=>alert('🔗 已從分享連結載入專案設定'),500);
+  } catch(e){ console.error('hash load fail',e); }
+}
+
 /* ===== 啟動 ===== */
 window.addEventListener('DOMContentLoaded',()=>{
   renderCatTabs(); renderMethods(); renderTrain(); renderGoalPresets(); updateApiStatus();
-  // admin 才看到試用碼產生器
   if(!currentRole().startsWith('trial:')){
     const tb=document.getElementById('trialBtn'); if(tb) tb.style.display='';
   }
+  loadFromHash();
   // 第一次使用提示輸入 API Key
   if(!hasKey()){
     setTimeout(()=>{
