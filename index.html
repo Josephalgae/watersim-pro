@@ -1931,6 +1931,14 @@ async function runSimulation(){
   renderMassBalanceSankey();
   renderCarbonFootprint();
   renderICList();
+  // Batch B：設備選型、管線、法規、ABC、What-if
+  SIM_RESULT.equipment=sizeEquipment(SELECTED, cap);
+  SIM_RESULT.piping=sizePipingPumps(cap);
+  renderEquipmentSizing();
+  renderPipingPumps();
+  renderRegCompliance();
+  renderWhatIf();
+  renderABButtons();
 
   // 動畫：階段一個一個逐步點亮，並更新圖表
   document.getElementById('simBtn').disabled=true;
@@ -2133,6 +2141,135 @@ function renderICList(){
   list.forEach(g=>h+=`<tr><td><b style="color:var(--cyan)">${g.unit}</b></td><td>${g.items.map(i=>`<span style="display:inline-block;background:rgba(34,211,238,.1);color:var(--cyan);padding:2px 7px;border-radius:6px;font-size:11px;margin:2px 3px 2px 0">${i}</span>`).join('')}</td></tr>`);
   h+=`</table></div>`;
   box.innerHTML=h;
+}
+
+function renderEquipmentSizing(){
+  let box=document.getElementById('equipBoxAuto');
+  if(!box){box=document.createElement('div');box.id='equipBoxAuto';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const eq=SIM_RESULT.equipment;
+  if(!eq.length){box.innerHTML='';return;}
+  let h=`<div class="chart-card" style="margin-top:0">
+    <h4>🏭 設備自動選型（依產水量 ${SIM_RESULT.cap} m³/h）</h4>`;
+  eq.forEach(e=>{
+    h+=`<div style="margin:10px 0 6px"><b style="color:var(--cyan)">${e.unit}</b></div>
+    <table style="font-size:11.5px;margin-bottom:10px">
+      ${e.specs.map(([k,v])=>`<tr><td style="width:35%"><b>${k}</b></td><td>${v}</td></tr>`).join('')}
+    </table>`;
+  });
+  h+=`</div>`;
+  box.innerHTML=h;
+}
+
+function renderPipingPumps(){
+  let box=document.getElementById('pipingBox');
+  if(!box){box=document.createElement('div');box.id='pipingBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const p=SIM_RESULT.piping;
+  box.innerHTML=`<div class="chart-card" style="margin-top:0">
+    <h4>🔧 管線 & 泵浦選型（${SIM_RESULT.cap} m³/h）</h4>
+    <div class="kpi-row" style="margin:6px 0">
+      <div class="kpi"><div class="lbl">主管管徑</div><div class="val">DN${Math.ceil(p.pipe.diam_mm/25)*25}</div><div class="unit">理論 ${p.pipe.diam_mm} mm</div></div>
+      <div class="kpi"><div class="lbl">管內流速</div><div class="val">${p.pipe.velocity_ms}</div><div class="unit">m/s</div></div>
+      <div class="kpi"><div class="lbl">壓損 /100m</div><div class="val">${p.pipe.headLoss_m}</div><div class="unit">m H₂O</div></div>
+      <div class="kpi"><div class="lbl">進料泵</div><div class="val">${p.feedPump.kW}</div><div class="unit">kW @ ${p.feedPump.head_m}m</div></div>
+      <div class="kpi"><div class="lbl">產水泵</div><div class="val">${p.productPump.kW}</div><div class="unit">kW @ ${p.productPump.head_m}m</div></div>
+    </div>
+    <div class="disc">假設不鏽鋼管 C=140、流速 1.5 m/s、泵效率 0.7。實際需依管長、配件、水溫修正。</div>
+  </div>`;
+}
+
+function renderRegCompliance(){
+  let box=document.getElementById('regBox');
+  if(!box){box=document.createElement('div');box.id='regBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  const last=SIM_RESULT.series[SIM_RESULT.series.length-1];
+  let h=`<div class="chart-card" style="margin-top:0">
+    <h4>📋 法規自動比對</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${Object.entries(REG_STANDARDS).map(([k,r])=>`<button class="cat-tab" onclick="showRegResult('${k}')">${r.name}</button>`).join('')}
+    </div>
+    <div id="regResult"></div>
+  </div>`;
+  box.innerHTML=h;
+  // 預設顯示一般工業
+  showRegResult('general');
+}
+function showRegResult(k){
+  const last=SIM_RESULT.series[SIM_RESULT.series.length-1];
+  // pH 用進水的（簡化）
+  const outValues={...last, pH:SIM_RESULT.series[0].pH||7.5};
+  const c=checkCompliance(outValues, k);
+  if(!c){document.getElementById('regResult').innerHTML='無資料';return;}
+  let h=`<div style="font-weight:700;color:${c.passed?'var(--good)':'var(--rose)'};margin-bottom:8px">
+    ${c.passed?'✅ 達標':'❌ 部分超標'} — ${c.regName}
+  </div>
+  <table style="font-size:11.5px">
+    <tr><th>參數</th><th>出水實際</th><th>法規限值</th><th>結果</th></tr>
+    ${c.rows.map(r=>`<tr><td><b>${r.param}</b></td><td>${r.value}</td><td>${r.limit}</td><td style="color:${r.pass?'var(--good)':'var(--rose)'};font-weight:700">${r.pass?'✓ PASS':'✗ FAIL'}</td></tr>`).join('')}
+  </table>`;
+  document.getElementById('regResult').innerHTML=h;
+}
+
+function renderABButtons(){
+  let box=document.getElementById('abBtns');
+  if(!box){box=document.createElement('div');box.id='abBtns';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  box.innerHTML=`<div class="chart-card" style="margin-top:0">
+    <h4>⚖️ 方案對比 — 把目前模擬結果存為 A 或 B，跑下一條流程再存另一個</h4>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn primary" style="padding:8px 14px" onclick="snapshotTrain('A')">💾 存為方案 A</button>
+      <button class="btn primary" style="padding:8px 14px" onclick="snapshotTrain('B')">💾 存為方案 B</button>
+      <button class="btn warm" style="padding:8px 14px" onclick="generateCommissioningPlan()">🚀 AI 生成試車計畫</button>
+      <button class="btn ghost" style="padding:8px 14px" onclick="openROI()">💰 ROI 試算</button>
+    </div>
+  </div>`;
+}
+
+function openROI(){
+  const baseline=parseFloat(prompt('輸入現行水成本（或排放費）TWD/m³：','20')||'20');
+  const r=computeROI(SIM_RESULT, baseline);
+  const irr=r.irr!=null?(r.irr*100).toFixed(1)+'%':'—';
+  alert(`💰 ROI 試算（20 年期、貼現率 5%）
+
+新系統水成本：${r.newCostPerM3.toFixed(2)} TWD/m³
+每 m³ 節省：${r.savings_per_m3.toFixed(2)} TWD
+年節省：${(r.annualSavings/1e6).toFixed(2)} M TWD/年
+
+▼ 投資指標
+  回收年限 Payback：${isFinite(r.payback)?r.payback.toFixed(1)+' 年':'∞（無回報）'}
+  NPV (20yr@5%)：${(r.npv/1e6).toFixed(2)} M TWD
+  IRR：${irr}
+
+${r.npv>0?'✅ 財務可行':'⚠️ NPV 為負，重新評估'}`);
+}
+
+async function generateCommissioningPlan(){
+  if(!hasKey()){alert('請先設定 AI Key');return;}
+  const prompt=`你是水處理試運轉專家。請根據以下案場資訊，產生 30 天試運轉計畫表（Markdown 表格），含每日工作項目、預期 KPI、安全注意事項。
+
+案場：產水量 ${SIM_RESULT.cap} m³/h
+處理流程：${SELECTED.map(id=>UNITS.find(u=>u.id===id)?.name).join(' → ')}
+總滯留：${SIM_RESULT.totalRT.toFixed(1)} 小時
+能耗：${SIM_RESULT.totalE.toFixed(2)} kWh/m³
+
+請分 3 階段：
+1. 清水試運轉（Day 1-7）：管線水壓測試、儀控校正、聯動測試
+2. 進料調試（Day 8-21）：逐步進水、藥劑投加、生物馴化（若有）
+3. 滿載運行（Day 22-30）：穩定產水、性能驗證、交接
+
+每天列出：日期、工作項目、預期 KPI、注意事項。`;
+  alert('🤖 AI 正在生成試車計畫，將在 AI 顧問視窗顯示，請稍候…');
+  toggleChat(); // 開啟對話視窗
+  addChatMsg('user','請生成 30 天試運轉計畫');
+  const typ=document.createElement('div');
+  typ.className='chat-msg ai'; typ.id='typingInd';
+  typ.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';
+  document.getElementById('chatMessages').appendChild(typ);
+  try{
+    const reply=await callAI(prompt);
+    document.getElementById('typingInd')?.remove();
+    addChatMsg('ai',reply);
+  }catch(e){
+    document.getElementById('typingInd')?.remove();
+    addChatMsg('ai','❌ '+e.message);
+  }
 }
 
 function renderSimKpis(r, series){
@@ -2812,6 +2949,265 @@ async function callChatAI(){
   })},PROVIDER);
   const j=await r.json();
   return j.choices?.[0]?.message?.content||'';
+}
+
+/* =========================================================================
+   ★ 設備自動選型 + 管線/泵浦尺寸 ★
+   ========================================================================= */
+function sizeEquipment(unitIds, cap){
+  // cap m³/h
+  const items=[];
+  unitIds.forEach(id=>{
+    const u=UNITS.find(x=>x.id===id);
+    if(!u) return;
+    if(id==='ro'){
+      // 假設 8" 元件產水 ~2 m³/h，回收率 75%
+      const recoveryRO=0.75;
+      const feedFlow=cap/recoveryRO;
+      const elementProductFlow=2.0; // m³/h per 8" element
+      const elements=Math.ceil(cap/elementProductFlow*1.15); // 15% safety
+      const arrayRatio='2:1';
+      const stage1=Math.ceil(elements*2/3);
+      const stage2=elements-stage1;
+      const vessels=Math.ceil(elements/6);
+      const hpPump_kW=feedFlow*15/(36*0.7); // 假設 15 bar，效率 0.7
+      items.push({unit:u.name,specs:[
+        ['膜元件','BW30HR-440i 8" (40 mil)'],
+        ['元件數量',`${elements} 支`],
+        ['壓力容器',`${vessels} 支 (6:1 元件/容器)`],
+        ['陣列',`${arrayRatio} (${stage1}+${stage2} 元件)`],
+        ['進水量',`${feedFlow.toFixed(1)} m³/h`],
+        ['濃水量',`${(feedFlow-cap).toFixed(1)} m³/h`],
+        ['高壓泵',`${hpPump_kW.toFixed(1)} kW @ 15 bar`],
+        ['抗結垢劑投藥泵','機械隔膜泵 0-2 L/h'],
+      ]});
+    } else if(id==='uf'){
+      const flux=60; // LMH
+      const moduleArea=50; // m² per module
+      const modules=Math.ceil(cap*1000/(flux*moduleArea)*1.2);
+      items.push({unit:u.name,specs:[
+        ['膜模組','UF 中空纖維 PVDF'],
+        ['模組數量',`${modules} 支`],
+        ['模組規格',`50 m² / 支`],
+        ['設計通量','60 LMH'],
+        ['反洗泵','離心泵 1.5-3 kW'],
+        ['CEB 投藥泵','機械隔膜泵 NaOCl + 檸檬酸'],
+      ]});
+    } else if(id==='cas'||id==='a2o'||id==='mbr'){
+      const HRT=id==='a2o'?12:(id==='mbr'?6:8); // h
+      const tankVol=cap*HRT;
+      items.push({unit:u.name,specs:[
+        [id==='a2o'?'A²/O 反應槽':(id==='mbr'?'MBR 反應槽':'曝氣池'),`${tankVol.toFixed(0)} m³ (HRT ${HRT}h)`],
+        ['鼓風機',`${(cap*2).toFixed(1)} m³/min 風量, ~${(cap*8).toFixed(1)} kW`],
+        [id==='mbr'?'膜模組':'迴流泵',id==='mbr'?`UF 浸沒式 ${Math.ceil(cap*1000/(20*40))} 模組`:`軸流泵 ${cap*0.8} m³/h`],
+        ['MLSS 量測','在線式 MLSS 感測器'],
+      ]});
+    } else if(id==='eq'){
+      const HRT=8;
+      items.push({unit:u.name,specs:[['調節池容積',`${(cap*HRT).toFixed(0)} m³ (HRT ${HRT}h)`],['攪拌器',`潛水式 ${Math.ceil(cap*0.5)} kW`],['進/出水泵','潛水泵 + 變頻']]});
+    } else if(id==='sed'){
+      const SOR=1.5; // m³/m²·h
+      const area=cap/SOR;
+      const diam=Math.sqrt(area*4/Math.PI);
+      items.push({unit:u.name,specs:[['沉澱池直徑',`Φ ${diam.toFixed(1)} m`],['面積',`${area.toFixed(0)} m²`],['深度','4-5 m'],['刮泥機','中央驅動，0.5 kW'],['污泥泵','螺桿泵 1-3 m³/h']]});
+    } else if(id==='coag'){
+      items.push({unit:u.name,specs:[
+        ['快混槽',`${(cap*2/60).toFixed(1)} m³ (HRT 2 min)`],
+        ['慢混槽',`${(cap*20/60).toFixed(1)} m³ (HRT 20 min)`],
+        ['快混攪拌器',`機械式，G=800 s⁻¹，${(cap*0.05).toFixed(1)} kW`],
+        ['慢混攪拌器',`機械式，G=50 s⁻¹，${(cap*0.01).toFixed(1)} kW`],
+        ['PAC 投藥泵',`機械隔膜泵 0-50 L/h`],
+        ['PAM 投藥系統','溶藥裝置 + 隔膜泵 0-10 L/h'],
+      ]});
+    } else if(id==='sand'){
+      const v=10;
+      const area=cap/v;
+      const diam=Math.sqrt(area*4/Math.PI);
+      items.push({unit:u.name,specs:[['濾池直徑',`Φ ${diam.toFixed(2)} m`],['面積',`${area.toFixed(1)} m²`],['濾速','10 m/h'],['反洗泵',`${(area*45).toFixed(0)} m³/h, 7.5 kW`]]});
+    } else if(id==='mvr'){
+      items.push({unit:u.name,specs:[['蒸發槽',`${cap*0.5} m³`],['壓縮機',`離心式 ${(cap*25).toFixed(0)} kW`],['換熱器','板式或管式，鈦合金'],['結晶抑制劑投藥','0-5 L/h']]});
+    } else if(id==='uv'){
+      const dose=80; // mJ/cm²
+      const lamps=Math.ceil(cap/15); // 15 m³/h per 100W lamp typical
+      items.push({unit:u.name,specs:[['UV 反應器',`不鏽鋼 ${cap} m³/h`],['燈管','低壓汞燈 LP，100 W'],['燈管數量',`${lamps} 支`],['UV 劑量','40-100 mJ/cm²'],['控制','UV 強度感測 + 流量連鎖']]});
+    } else if(id==='gac'){
+      const ebct=20/60; // h
+      const vol=cap*ebct;
+      items.push({unit:u.name,specs:[['活性碳槽',`${vol.toFixed(1)} m³`],['EBCT','20 min'],['濾速','10 m/h'],['碳種','椰殼活性碳 1000 mg/g 碘吸附']]});
+    }
+    // 其他單元給簡略選型
+    else {
+      items.push({unit:u.name,specs:[['容積',`${(cap*u.rt).toFixed(0)} m³ (HRT ${u.rt}h)`],['電力',`${(cap*u.e).toFixed(2)} kWh/h 耗能`]]});
+    }
+  });
+  return items;
+}
+
+function sizePipingPumps(cap){
+  // 主管線設計
+  const velocity=1.5; // m/s for water
+  const flowM3s=cap/3600;
+  const area=flowM3s/velocity;
+  const diam=Math.sqrt(area*4/Math.PI)*1000; // mm
+  // Hazen-Williams 簡化
+  const C=140; // 不鏽鋼或 PE
+  const L=100; // 假設管長
+  const headLoss=(10.67*Math.pow(flowM3s,1.85)/(Math.pow(C,1.85)*Math.pow(diam/1000,4.87)))*L;
+  // 進料泵
+  const feedHead=20; // m 假設總揚程
+  const eff=0.7;
+  const feedPump_kW=flowM3s*1000*9.81*feedHead/(1000*eff);
+  // 抽水泵（產水送出）
+  const productPump_kW=flowM3s*1000*9.81*15/(1000*eff);
+  return {
+    pipe:{diam_mm:diam.toFixed(0), velocity_ms:velocity, headLoss_m:headLoss.toFixed(2)},
+    feedPump:{flow:cap, head_m:feedHead, kW:feedPump_kW.toFixed(2), type:'離心泵 + VFD'},
+    productPump:{flow:cap, head_m:15, kW:productPump_kW.toFixed(2), type:'離心泵 + VFD'},
+  };
+}
+
+/* =========================================================================
+   ★ 法規自動比對（台灣放流水標準）★
+   ========================================================================= */
+const REG_STANDARDS = {
+  general:{name:'一般工業（事業放流水）',limits:{COD:100,BOD:30,TSS:30,pH:[6,9],N:50,P:4,turbidity:30}},
+  electronics:{name:'光電業 / 半導體',limits:{COD:100,BOD:30,TSS:30,pH:[6,9],N:50,P:4,F:15,Cu:3,B:1}},
+  dyeing:{name:'染整 / 紡織',limits:{COD:160,BOD:30,TSS:30,pH:[6,9],N:60,Color:550}},
+  food:{name:'食品 / 飲料',limits:{COD:100,BOD:30,TSS:30,pH:[6,9],N:50,P:4,FOG:10}},
+  drinking:{name:'飲用水標準',limits:{TDS:500,hardness:300,turbidity:2,pH:[6.5,8.5],pathogens:0}},
+  reclaimed:{name:'再生水（都市再利用）',limits:{COD:30,BOD:10,TSS:5,turbidity:2,pH:[6,9],pathogens:200,N:30,P:4}},
+};
+function checkCompliance(outValues, regKey){
+  const reg=REG_STANDARDS[regKey];
+  if(!reg) return null;
+  const rows=[];
+  for(const [param,limit] of Object.entries(reg.limits)){
+    const v=outValues[param];
+    if(v==null) continue;
+    let pass=false, str='';
+    if(Array.isArray(limit)){
+      pass=v>=limit[0] && v<=limit[1];
+      str=`${limit[0]}-${limit[1]}`;
+    } else {
+      pass=v<=limit;
+      str=`< ${limit}`;
+    }
+    rows.push({param,value:v.toFixed?v.toFixed(2):v,limit:str,pass});
+  }
+  return {regName:reg.name, rows, passed:rows.every(r=>r.pass)};
+}
+
+/* =========================================================================
+   ★ 方案 A vs B 對比 ★
+   ========================================================================= */
+let TRAIN_A=null, TRAIN_B=null;
+function snapshotTrain(slot){
+  if(!SIM_RESULT){alert('請先執行模擬');return;}
+  const snap={
+    selected:SELECTED.slice(),
+    series:SIM_RESULT.series,
+    totalRT:SIM_RESULT.totalRT,
+    totalE:SIM_RESULT.totalE,
+    capex:SIM_RESULT.capex,
+    opex:SIM_RESULT.opex,
+    energyCostYr:SIM_RESULT.energyCostYr,
+    cap:SIM_RESULT.cap,
+    massBalance:SIM_RESULT.massBalance,
+    carbon:SIM_RESULT.carbon,
+    name:document.getElementById('project').value || ('方案 '+slot),
+  };
+  if(slot==='A') TRAIN_A=snap; else TRAIN_B=snap;
+  renderABCompare();
+  alert(`✅ 已存為方案 ${slot}：${snap.name}`);
+}
+function renderABCompare(){
+  let box=document.getElementById('abBox');
+  if(!box){box=document.createElement('div');box.id='abBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  if(!TRAIN_A && !TRAIN_B){ box.innerHTML=''; return; }
+  const summary=(s)=>{
+    if(!s) return '<div style="color:var(--muted);font-style:italic">尚未存檔</div>';
+    const last=s.series[s.series.length-1];
+    return `<div><b style="color:var(--cyan)">${s.name}</b><br>
+      流程：${s.selected.map(id=>UNITS.find(u=>u.id===id)?.abbr).join(' → ')}<br>
+      <table style="font-size:11.5px">
+        <tr><td>總滯留</td><td>${s.totalRT.toFixed(1)} h</td></tr>
+        <tr><td>能耗</td><td>${s.totalE.toFixed(2)} kWh/m³</td></tr>
+        <tr><td>CAPEX</td><td>${(s.capex/1e6).toFixed(2)} M</td></tr>
+        <tr><td>年 OPEX</td><td>${((s.opex+s.energyCostYr)/1e6).toFixed(2)} M</td></tr>
+        <tr><td>回收率</td><td>${(s.massBalance.totalRecovery*100).toFixed(1)}%</td></tr>
+        <tr><td>碳排</td><td>${s.carbon.totalCO2.toFixed(3)} kg/m³</td></tr>
+        <tr><td>出水 BOD</td><td>${last.BOD.toFixed(1)} mg/L</td></tr>
+        <tr><td>出水 COD</td><td>${last.COD.toFixed(1)} mg/L</td></tr>
+        <tr><td>出水 TDS</td><td>${last.TDS.toFixed(0)} mg/L</td></tr>
+      </table></div>`;
+  };
+  box.innerHTML=`<div class="chart-card" style="margin-top:0">
+    <h4>⚖️ 方案 A vs B 對比</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      ${summary(TRAIN_A)}${summary(TRAIN_B)}
+    </div>
+    <div style="margin-top:10px"><button class="btn ghost" style="padding:6px 12px;font-size:12px" onclick="TRAIN_A=null;TRAIN_B=null;renderABCompare()">🗑️ 清除對比</button></div>
+  </div>`;
+}
+
+/* =========================================================================
+   ★ ROI / 投資回報計算 ★
+   ========================================================================= */
+function computeROI(sim, baselineCostPerM3, discount=0.05, years=20){
+  const cap=sim.cap;
+  const newOpex_yr=sim.opex+sim.energyCostYr;
+  const newCostPerM3=newOpex_yr/(cap*24*365);
+  const savings_per_m3=baselineCostPerM3-newCostPerM3;
+  const annualSavings=savings_per_m3*cap*24*365;
+  const payback=annualSavings>0?sim.capex/annualSavings:Infinity;
+  // NPV
+  let npv=-sim.capex;
+  for(let y=1;y<=years;y++) npv+=annualSavings/Math.pow(1+discount,y);
+  // IRR 簡化（用二分法）
+  const irrFn=(r)=>{let s=-sim.capex; for(let y=1;y<=years;y++) s+=annualSavings/Math.pow(1+r,y); return s;};
+  let lo=0, hi=1, irr=null;
+  if(annualSavings>0){
+    for(let i=0;i<50;i++){const m=(lo+hi)/2; if(irrFn(m)>0) lo=m; else hi=m;}
+    irr=(lo+hi)/2;
+  }
+  return {newCostPerM3, savings_per_m3, annualSavings, payback, npv, irr};
+}
+
+/* =========================================================================
+   ★ What-if 拉桿 ★
+   ========================================================================= */
+function renderWhatIf(){
+  let box=document.getElementById('whatifBox');
+  if(!box){box=document.createElement('div');box.id='whatifBox';box.style.marginTop='14px';document.getElementById('simPanel').appendChild(box);}
+  if(!SELECTED.includes('ro')){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="chart-card" style="margin-top:0">
+    <h4>🎚️ What-if 即時調整（RO 回收率）</h4>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <label style="font-size:12px;color:var(--muted)">RO 回收率：</label>
+      <input type="range" id="wiRecovery" min="40" max="90" value="75" style="flex:1;min-width:200px" oninput="onWhatIfChange()">
+      <span id="wiRecoveryVal" style="color:var(--teal);font-weight:700;min-width:60px">75%</span>
+    </div>
+    <div class="kpi-row" id="wiKpis" style="margin-top:10px"></div>
+  </div>`;
+  onWhatIfChange();
+}
+function onWhatIfChange(){
+  const r=parseInt(document.getElementById('wiRecovery').value)/100;
+  document.getElementById('wiRecoveryVal').textContent=(r*100).toFixed(0)+'%';
+  const cap=SIM_RESULT.cap;
+  const feed=cap/r;
+  const reject=feed-cap;
+  const pump_kW=feed*(r>0.75?17:13)/(36*0.7);
+  const pump_kWh_m3=pump_kW/cap;
+  const opex_yr=pump_kWh_m3*cap*24*365*4; // 4 TWD/kWh
+  document.getElementById('wiKpis').innerHTML=`
+    <div class="kpi"><div class="lbl">進水量</div><div class="val">${feed.toFixed(1)}</div><div class="unit">m³/h</div></div>
+    <div class="kpi"><div class="lbl">濃水量</div><div class="val">${reject.toFixed(1)}</div><div class="unit">m³/h</div></div>
+    <div class="kpi"><div class="lbl">高壓泵</div><div class="val">${pump_kW.toFixed(1)}</div><div class="unit">kW</div></div>
+    <div class="kpi"><div class="lbl">年電費</div><div class="val">${(opex_yr/1e6).toFixed(2)}</div><div class="unit">M TWD/年</div></div>
+    <div class="kpi"><div class="lbl">回收水量</div><div class="val">${(cap*24*365/1000).toFixed(0)}</div><div class="unit">千 m³/年</div></div>
+    <div class="kpi"><div class="lbl">結垢風險</div><div class="val" style="color:${r>0.82?'var(--rose)':r>0.78?'var(--warn)':'var(--good)'}">${r>0.82?'⚠️高':r>0.78?'中':'低'}</div><div class="unit">${r>0.82?'建議降低':'OK'}</div></div>
+  `;
 }
 
 /* =========================================================================
