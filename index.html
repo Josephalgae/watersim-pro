@@ -103,6 +103,9 @@ select option{background:var(--bg2);color:var(--ink)}
 .method .mdesc{font-size:11.5px;color:var(--muted);line-height:1.5}
 .method .mstats{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;font-size:10.5px}
 .method .mstats span{padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--muted)}
+.info-btn{position:absolute;top:8px;right:34px;width:20px;height:20px;border-radius:50%;background:rgba(34,211,238,.15);color:var(--cyan);border:1px solid rgba(34,211,238,.3);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:.15s;z-index:2}
+.info-btn:hover{background:rgba(34,211,238,.3);transform:scale(1.15)}
+.method.selected .info-btn{right:38px}
 
 .train-bar{margin-top:14px;padding:14px;background:rgba(0,0,0,.25);border-radius:12px;border:1px dashed var(--line)}
 .train-label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600}
@@ -457,6 +460,18 @@ tr.totalrow td{font-weight:700;background:rgba(6,214,160,.06);color:var(--teal)}
 
 </div><!-- /wrap -->
 </div><!-- /#app -->
+
+<!-- 設計細節 Modal -->
+<div class="modal-bg" id="designModal">
+  <div class="modal" style="max-width:680px;max-height:85vh;overflow-y:auto">
+    <h3 id="designModalTitle">—</h3>
+    <p id="designModalDesc" style="color:var(--muted);font-size:13px;margin-bottom:0">—</p>
+    <div id="designModalBody"></div>
+    <div class="bar">
+      <button class="btn ghost" onclick="closeDesignModal()">關閉</button>
+    </div>
+  </div>
+</div>
 
 <!-- 試用碼產生 Modal -->
 <div class="modal-bg" id="trialModal">
@@ -1009,6 +1024,194 @@ const UNITS = [
     removal:{BOD:1.0,COD:1.0,TSS:1.0,TDS:1.0,N:1.0,P:1.0,hardness:1.0,turbidity:1.0,pathogens:1.0}},
 ];
 
+/* =========================================================================
+   ★ 化學品 + 設計細節資料庫 ★
+   ========================================================================= */
+const DESIGN = {
+  screen:{chemicals:[],design:{'孔目尺寸':'粗篩 25-50 mm、細篩 3-6 mm','流速':'0.6-1.2 m/s','清理方式':'機械/人工耙除'}},
+  grit:{chemicals:[],design:{'沉降時間':'1-3 min','水平流速':'0.3 m/s（曝氣式 0.6 m/s）','上升流速':'0.012-0.025 m/s'}},
+  eq:{chemicals:[],design:{'有效容積':'平均日流量 4-8 h','HRT':'6-12 h','攪拌方式':'機械或潛水攪拌（5-15 W/m³）','液位變化':'± 1.5 m'}},
+  neutral:{
+    chemicals:[
+      {name:'NaOH 50% 液鹼',dose:'依 pH 投藥（典型 5-50 mg/L）',purpose:'升 pH（酸性水中和）'},
+      {name:'H₂SO₄ 98% / HCl 32%',dose:'依 pH 投藥',purpose:'降 pH（鹼性水中和）'},
+      {name:'Ca(OH)₂ 消石灰漿',dose:'視鹼度 50-300 mg/L',purpose:'兼具中和 + 軟化 + 沉澱重金屬'},
+      {name:'CO₂ 氣體',dose:'依目標 pH',purpose:'高 pH 鹼性水降 pH（不引入鹽分）'},
+    ],
+    design:{'HRT':'15-30 min','pH 目標':'6.5-8.5','控制方式':'pH 計回授自動投藥','安全':'酸鹼分槽、防溢圍堰'}
+  },
+  coag:{
+    chemicals:[
+      {name:'PAC 聚合氯化鋁',dose:'10-50 mg/L（以 Al₂O₃ 計）',purpose:'主混凝劑（中性 pH 範圍廣）'},
+      {name:'明礬 Alum 硫酸鋁',dose:'30-100 mg/L',purpose:'傳統混凝劑（pH 5.5-7.5）'},
+      {name:'FeCl₃ 三氯化鐵',dose:'20-80 mg/L',purpose:'高 pH/有機污水適用、除磷強'},
+      {name:'PFS 聚合硫酸鐵',dose:'30-60 mg/L',purpose:'適合染整、皮革廢水'},
+      {name:'PAM 聚丙烯醯胺（陰/陽離子）',dose:'0.1-2 mg/L',purpose:'助凝劑，加大絮體'},
+      {name:'NaOH / Ca(OH)₂',dose:'視鹼度補充',purpose:'維持 pH、補充鹼度'},
+    ],
+    design:{'快混 G 值':'500-1000 s⁻¹','快混 HRT':'1-3 min','慢混 G 值':'30-80 s⁻¹','慢混 HRT':'15-30 min','投藥點':'快混前管道混合或快混槽入口'}
+  },
+  sed:{
+    chemicals:[
+      {name:'PAM（補助）',dose:'0.05-0.5 mg/L',purpose:'加速沉降（如沉降效果不佳）'},
+    ],
+    design:{'表面負荷':'0.8-2.0 m³/m²·h（Hazen）','HRT':'2-4 h','池深':'3-5 m','堰負荷':'< 6 m³/m·h','污泥斜面':'> 60°'}
+  },
+  daf:{
+    chemicals:[
+      {name:'PAC + PAM',dose:'PAC 20-80、PAM 0.5-2 mg/L',purpose:'與 DAF 配合的標準藥組'},
+    ],
+    design:{'回流比':'10-30%（含微氣泡水）','飽和器壓力':'4-6 bar','HRT':'15-30 min','表面負荷':'4-8 m³/m²·h','空氣/固體比 A/S':'0.005-0.06'}
+  },
+  sand:{
+    chemicals:[],
+    design:{'濾速':'5-15 m/h','濾層厚度':'石英砂 0.6-1.0 m + 無煙煤 0.3-0.5 m','反洗強度':'40-60 m³/m²·h','反洗週期':'24-48 h','反洗時間':'5-10 min'}
+  },
+  chemox:{
+    chemicals:[
+      {name:'NaOCl 次氯酸鈉',dose:'2-10 mg/L 餘氯',purpose:'消毒 + 氧化'},
+      {name:'ClO₂ 二氧化氯',dose:'0.5-2 mg/L',purpose:'氧化力強，不產 THMs'},
+      {name:'H₂O₂ 過氧化氫 35%',dose:'10-50 mg/L',purpose:'氧化 COD、配合 Fe 行 Fenton'},
+      {name:'KMnO₄',dose:'1-5 mg/L',purpose:'除錳除鐵、氧化異味'},
+    ],
+    design:{'HRT':'10-30 min','混合':'機械或管道混合','控制':'ORP 計回授'}
+  },
+  cas:{
+    chemicals:[
+      {name:'營養鹽 N/P 補充（尿素、磷酸）',dose:'BOD:N:P = 100:5:1',purpose:'補足生物所需 N/P'},
+      {name:'消泡劑',dose:'0.5-2 mg/L',purpose:'抑制曝氣泡沫'},
+    ],
+    design:{'HRT':'4-8 h','SRT':'5-15 天','MLSS':'2000-4000 mg/L','F/M':'0.2-0.4 kg BOD/kg MLSS·d','溶氧 DO':'> 2 mg/L','污泥迴流比':'50-100%'}
+  },
+  a2o:{
+    chemicals:[
+      {name:'乙酸鈉 / 葡萄糖（碳源）',dose:'視 C/N 比',purpose:'補碳源助反硝化'},
+      {name:'FeCl₃ / Alum（後段化學除磷）',dose:'依需求',purpose:'生物除磷不夠時補刀'},
+    ],
+    design:{'厭氧 HRT':'1-2 h','缺氧 HRT':'2-4 h','好氧 HRT':'4-8 h','SRT':'10-20 天','MLSS':'3000-4500 mg/L','內循環 r':'200-400%','污泥迴流 R':'50-100%'}
+  },
+  sbr:{
+    chemicals:[{name:'營養鹽（如缺）',dose:'BOD:N:P = 100:5:1',purpose:'BOD 平衡'}],
+    design:{'進水 0.5-1 h':'進水填充','反應 2-4 h':'曝氣（可缺氧/好氧切換）','沉降 0.5-1 h':'靜沉','排水 0.5 h':'潷出上清液','SRT':'10-25 天','MLSS':'3000-5000 mg/L'}
+  },
+  mbr:{
+    chemicals:[
+      {name:'NaOCl（CIP 鹼洗）',dose:'200-500 mg/L Cl₂',purpose:'去有機/生物污染'},
+      {name:'檸檬酸（CIP 酸洗）',dose:'1-2% 溶液',purpose:'去無機結垢'},
+    ],
+    design:{'膜通量':'10-25 LMH','膜壓差 TMP':'< 50 kPa','HRT':'4-8 h','MLSS':'8000-12000 mg/L','SRT':'15-30 天','曝氣強度':'0.3-0.5 Nm³/m²·h（膜面）','CIP 週期':'每 1-3 月一次'}
+  },
+  mbbr:{
+    chemicals:[{name:'營養鹽（如缺）',dose:'BOD:N:P = 100:5:1',purpose:''}],
+    design:{'生物載體填充率':'40-67%（容積%）','HRT':'2-4 h','曝氣 DO':'> 3 mg/L','負荷':'4-15 g BOD/m²·d','載體':'K1/K3 PE 載體（比表面 500-800 m²/m³）'}
+  },
+  uasb:{
+    chemicals:[
+      {name:'NaHCO₃ 鹼度補充',dose:'視 alkalinity',purpose:'維持 pH 6.8-7.4'},
+      {name:'微量元素（Fe/Co/Ni）',dose:'<1 mg/L',purpose:'產甲烷菌活性所需'},
+    ],
+    design:{'OLR 容積負荷':'8-15 kg COD/m³·d','SRT':'> 30 天','上升流速':'0.5-1.0 m/h','HRT':'4-12 h','操作溫度':'30-37°C（中溫）','污泥粒徑':'1-3 mm 顆粒污泥','沼氣產率':'0.3-0.4 Nm³/kg COD 去除'}
+  },
+  mf:{
+    chemicals:[
+      {name:'NaOCl CEB / CIP',dose:'200 mg/L Cl₂',purpose:'去有機/生物污染'},
+      {name:'檸檬酸 CEB',dose:'1-2%',purpose:'去無機'},
+    ],
+    design:{'孔徑':'0.1-0.5 μm','通量':'40-80 LMH','TMP':'< 50 kPa','回收率':'90-95%','CEB':'每 30-60 min 一次','CIP':'每 1-3 月一次'}
+  },
+  uf:{
+    chemicals:[
+      {name:'NaOCl CEB（化學增強反洗）',dose:'100-300 mg/L Cl₂',purpose:'去有機/生物污染'},
+      {name:'檸檬酸 / HCl CEB',dose:'pH 2',purpose:'去 Fe/Mn/CaCO₃'},
+      {name:'NaOH CIP',dose:'pH 11-12',purpose:'重度有機污染清洗'},
+    ],
+    design:{'孔徑':'10-100 nm（截留 ~5-50 kDa）','通量':'40-100 LMH','TMP':'< 100 kPa','回收率':'90-95%','SDI 出水':'< 3','物理反洗':'每 30-60 min（30-60 s）','CEB':'每天 1-3 次','CIP':'每月 1 次'}
+  },
+  nf:{
+    chemicals:[
+      {name:'抗結垢劑 Antiscalant',dose:'2-5 mg/L',purpose:'防 CaCO₃ / CaSO₄'},
+      {name:'SBS 亞硫酸氫鈉',dose:'1.5-3× 餘氯',purpose:'去餘氯保護膜'},
+    ],
+    design:{'膜型':'NF270, NF200（聚醯胺 TFC）','操作壓力':'5-15 bar','回收率':'80-90%','二價鹽截留':'> 95%','一價鹽截留':'40-70%','溫度':'5-45°C'}
+  },
+  ro:{
+    chemicals:[
+      {name:'抗結垢劑 Antiscalant',dose:'2-5 mg/L（如 Genesys/Vitec/Hydrex）',purpose:'防 CaCO₃ / CaSO₄ / SiO₂ / BaSO₄'},
+      {name:'SBS / SMBS（亞硫酸氫鈉）',dose:'1.5-3 mg/L per mg/L Cl₂',purpose:'去餘氯保護 PA 膜'},
+      {name:'pH 調整（HCl/NaOH）',dose:'依進水',purpose:'維持 LSI < 0、最佳膜效能（pH 6.5-8）'},
+      {name:'CIP 酸洗（HCl 或檸檬酸）',dose:'pH 2-3，溫度 25-35°C',purpose:'去無機結垢（CaCO₃、Fe、CaSO₄）'},
+      {name:'CIP 鹼洗（NaOH ± SDS）',dose:'pH 11-12',purpose:'去有機 + 生物污染（biofouling）'},
+    ],
+    design:{
+      '膜型':'BW30HR-440i（苦鹹水）/ SW30HR/XLE（海水）/ ECO PRO-400（高回收）',
+      '陣列配置':'單段 50%、2 段 75-85%（如 2:1 = 第一段 6 元件、第二段 3 元件）',
+      '回收率':'苦鹹水 75-85%、海水 40-50%、高 TDS 60%',
+      '產水通量':'苦鹹水 15-25 LMH、海水 8-15 LMH、Ultra 10-20 LMH',
+      '操作壓力':'苦鹹水 10-20 bar、海水 55-70 bar',
+      '進水 SDI':'< 3（理想 < 1）',
+      'LSI':'< 0（避免 CaCO₃ 結垢）',
+      '產水量/8" 元件':'1.5-2.5 m³/h',
+      'β 濃差極化':'< 1.2',
+      '溫度':'5-45°C',
+      '系統元件數':'依產水量、回收率、單元件產水量計算',
+      'CIP 週期':'壓差 ↑ 15%、通量 ↓ 10%、鹽透過率 ↑ 50% 任一觸發',
+    }
+  },
+  gac:{
+    chemicals:[
+      {name:'活性碳（椰殼/煤質）',dose:'填充量 2-3 m³ 碳/m³/h 進水',purpose:'吸附 TOC、微量有機物、餘氯'},
+    ],
+    design:{'空床接觸時間 EBCT':'10-30 min','過濾速度':'5-15 m/h','床層厚度':'1.5-3 m','碳更換週期':'6-18 月（依負荷）','反洗強度':'30-40 m³/m²·h'}
+  },
+  iex:{
+    chemicals:[
+      {name:'NaCl 食鹽（軟化樹脂再生）',dose:'100-150 g NaCl/L 樹脂',purpose:'軟化 SAC 樹脂再生'},
+      {name:'HCl（強酸陽 SAC 再生）',dose:'100-200 g/L 樹脂',purpose:'純水級 SAC 再生'},
+      {name:'NaOH（強鹼陰 SBA 再生）',dose:'80-160 g/L 樹脂',purpose:'純水級 SBA 再生'},
+    ],
+    design:{'樹脂型':'SAC（強酸陽軟化）/ MB 混床 / SBA（陰）','流速':'10-40 m/h','操作循環':'運轉 → 反洗 → 再生 → 慢洗 → 快洗','樹脂壽命':'5-7 年','再生週期':'依硬度（典型 24-48 h）'}
+  },
+  ozone:{
+    chemicals:[{name:'O₃ 臭氧（PSA + 臭氧產生器）',dose:'2-10 mg/L',purpose:'氧化色度/嗅味/微污染物、消毒'}],
+    design:{'接觸時間':'5-15 min','接觸塔型':'氣泡式 / 文氏管 / 噴射器','CT 值':'1.6 mg·min/L (滅活 Crypto)','尾氧處理':'觸媒分解或排空稀釋','溶解效率':'> 90%'}
+  },
+  uv:{
+    chemicals:[],
+    design:{'UV 劑量':'40-100 mJ/cm²（依水質）','波長':'253.7 nm（低壓汞燈 LP）/ 200-300 nm（中壓 MP）','燈管壽命':'8000-12000 h（LP）/ 5000 h（MP）','石英套管清潔':'每月手動或自動','流速':'設計通水均勻、避免短路'}
+  },
+  aop:{
+    chemicals:[
+      {name:'H₂O₂',dose:'5-30 mg/L',purpose:'與 O₃ 或 UV 反應產 •OH'},
+      {name:'O₃',dose:'與 H₂O₂ 比 ≈ 0.5:1（mol）',purpose:'O₃/H₂O₂'},
+      {name:'FeSO₄（Fenton）',dose:'依 Fe²⁺/H₂O₂ 摩爾比 1:5-1:30',purpose:'類 Fenton 高級氧化'},
+    ],
+    design:{'反應時間':'5-20 min','pH':'2-4（Fenton）, 5-9（O₃ AOP）','UV 強度':'依 H₂O₂ 濃度與目標物 RCT 計算','後段除餘氧/H₂O₂':'活性碳或催化分解'}
+  },
+  cdi:{
+    chemicals:[
+      {name:'酸洗（檸檬酸/HCl）',dose:'pH 2-3',purpose:'去電極結垢（CaCO₃/Mg）'},
+      {name:'弱鹼洗（NaOH）',dose:'pH 10-11',purpose:'去有機污染'},
+    ],
+    design:{'進水 TDS':'< 2000 mg/L（最適 500-1500）','回收率':'80-90%','電壓':'1.2-1.8 V','吸附週期':'2-4 min','再生週期':'反向電壓 1-3 min','能耗':'0.3-1.0 kWh/m³（低於 RO）'}
+  },
+  edi:{
+    chemicals:[],
+    design:{'進水 RO 產水':'TDS < 30、TOC < 0.5','產水電阻率':'10-18 MΩ·cm','回收率':'90-95%','操作電壓':'0.7-1.5 V/cell pair','溫度':'10-35°C','無需化學再生':'連續電去離子'}
+  },
+  mvr:{
+    chemicals:[
+      {name:'阻垢劑 / 結晶抑制劑',dose:'1-10 mg/L',purpose:'防換熱器結垢'},
+      {name:'消泡劑',dose:'依需求',purpose:'抑制蒸發泡沫'},
+      {name:'CIP 酸洗（檸檬酸）',dose:'pH 2-3',purpose:'去 CaCO₃/CaSO₄ 結垢'},
+    ],
+    design:{'濃縮倍數':'10-50 倍','蒸氣壓縮機':'單級 ΔT 6-12°C','耗能':'15-30 kWh/m³ 蒸發水（含壓縮機）','操作溫度':'60-95°C','濃縮液 TDS':'15-30 萬 mg/L','材質':'316L / 鈦合金（高 Cl⁻ 用）'}
+  },
+  cryst:{
+    chemicals:[{name:'晶種',dose:'依水質',purpose:'促晶核生成'}],
+    design:{'結晶器類型':'強制循環 FC / DTB / OSLO','操作模式':'蒸發結晶（連續或批次）','晶體粒徑':'0.2-2 mm','分離方式':'離心或過濾','耗能':'50-100 kWh/m³','回收鹽':'NaCl / Na₂SO₄ / KCl（依進水組成）'}
+  },
+};
+
 const CATS=['全部','前處理','物化','生物','薄膜','高級','濃縮'];
 let currentCat='全部';
 let SELECTED=[];   // 已選 unit id 陣列（依序）
@@ -1023,8 +1226,10 @@ function renderMethods(){
   const list=UNITS.filter(u=>currentCat==='全部'||u.cat===currentCat);
   document.getElementById('methodsGrid').innerHTML=list.map(u=>{
     const sel=SELECTED.includes(u.id);
+    const hasDesign=DESIGN[u.id];
     return `<div class="method ${sel?'selected':''}" onclick="toggleUnit('${u.id}')">
       <div class="mtag">${u.cat}</div>
+      ${hasDesign?`<button class="info-btn" onclick="event.stopPropagation();showDesignDetails('${u.id}')" title="化學品 + 設計細節">ⓘ</button>`:''}
       <div class="mname">${u.name}</div>
       <div class="mdesc">${u.desc}</div>
       <div class="mstats">
@@ -1035,6 +1240,29 @@ function renderMethods(){
     </div>`;
   }).join('');
 }
+
+function showDesignDetails(id){
+  const u=UNITS.find(x=>x.id===id);
+  const d=DESIGN[id]||{};
+  if(!u) return;
+  const chemHtml=(d.chemicals||[]).length?
+    `<h4 style="color:var(--cyan);margin:14px 0 8px;font-size:13px">💊 化學品 / 藥劑</h4>
+     <table>
+       <tr><th>名稱</th><th>劑量 / 濃度</th><th>用途</th></tr>
+       ${d.chemicals.map(c=>`<tr><td><b>${c.name}</b></td><td style="white-space:nowrap">${c.dose}</td><td>${c.purpose}</td></tr>`).join('')}
+     </table>`:'<div style="color:var(--muted);font-size:12px;margin:14px 0">（本單元不需化學藥劑）</div>';
+  const designHtml=Object.keys(d.design||{}).length?
+    `<h4 style="color:var(--cyan);margin:18px 0 8px;font-size:13px">🔧 設計參數</h4>
+     <table>
+       <tr><th>參數</th><th>典型值 / 範圍</th></tr>
+       ${Object.entries(d.design).map(([k,v])=>`<tr><td><b>${k}</b></td><td>${v}</td></tr>`).join('')}
+     </table>`:'';
+  document.getElementById('designModalTitle').innerHTML=`${u.name} <span class="mtag" style="margin-left:8px">${u.cat}</span>`;
+  document.getElementById('designModalDesc').textContent=u.desc;
+  document.getElementById('designModalBody').innerHTML=chemHtml+designHtml;
+  document.getElementById('designModal').classList.add('show');
+}
+function closeDesignModal(){document.getElementById('designModal').classList.remove('show');}
 function toggleUnit(id){
   const i=SELECTED.indexOf(id);
   if(i>=0) SELECTED.splice(i,1); else SELECTED.push(id);
@@ -1646,6 +1874,7 @@ async function runSimulation(){
   const ch=initCharts(stages, series);
   drawFlowSvg(stages, 0);
   renderSimKpis(SIM_RESULT, series);
+  renderTrainDesignSummary();
 
   // 動畫：階段一個一個逐步點亮，並更新圖表
   document.getElementById('simBtn').disabled=true;
@@ -1679,6 +1908,44 @@ async function runSimulation(){
     }
   };
   requestAnimationFrame(tick);
+}
+
+function renderTrainDesignSummary(){
+  let box=document.getElementById('trainDesignBox');
+  if(!box){
+    box=document.createElement('div');
+    box.id='trainDesignBox';
+    box.style.cssText='margin-top:14px';
+    document.getElementById('simPanel').appendChild(box);
+  }
+  if(!SELECTED.length){ box.innerHTML=''; return; }
+  // 整合所有選的單元的化學品 + 設計
+  let totalChemicals=[];
+  let designRows=[];
+  SELECTED.forEach(id=>{
+    const u=UNITS.find(x=>x.id===id); const d=DESIGN[id];
+    if(!d) return;
+    (d.chemicals||[]).forEach(c=>{
+      totalChemicals.push({unit:u.name, ...c});
+    });
+    Object.entries(d.design||{}).forEach(([k,v])=>{
+      designRows.push({unit:u.name, key:k, value:v});
+    });
+  });
+  let h=`<div class="chart-card" style="margin-top:0">
+    <h4>💊 化學品 / 藥劑總覽（${totalChemicals.length} 項）</h4>`;
+  if(totalChemicals.length){
+    h+=`<table><tr><th>單元</th><th>化學品</th><th>劑量</th><th>用途</th></tr>`;
+    totalChemicals.forEach(c=>h+=`<tr><td><b style="color:var(--cyan)">${c.unit}</b></td><td>${c.name}</td><td style="white-space:nowrap;color:var(--teal)">${c.dose}</td><td>${c.purpose}</td></tr>`);
+    h+=`</table>`;
+  } else h+=`<div style="color:var(--muted);font-size:12px">（所選流程無化學藥劑）</div>`;
+  h+=`</div>`;
+  h+=`<div class="chart-card" style="margin-top:12px">
+    <h4>🔧 設計參數總覽（${designRows.length} 項）</h4>
+    <table style="font-size:11.5px"><tr><th>單元</th><th>參數</th><th>典型值</th></tr>`;
+  designRows.forEach(r=>h+=`<tr><td><b style="color:var(--cyan)">${r.unit}</b></td><td>${r.key}</td><td>${r.value}</td></tr>`);
+  h+=`</table></div>`;
+  box.innerHTML=h;
 }
 
 function renderSimKpis(r, series){
